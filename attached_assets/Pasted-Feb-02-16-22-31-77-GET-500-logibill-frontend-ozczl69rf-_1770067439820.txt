@@ -1,0 +1,49 @@
+Feb 02 16:22:31.77
+GET
+500
+logibill-frontend-ozczl69rf-tsgcfos-projects.vercel.app
+/
+[Error: Your project's URL and Key are required to create a Supabase client! Check your Supabase project's API settings to find these values https://supabase.com/dashboard/project/_/settings/api]
+Feb 02 16:22:30.67
+GET
+500
+logibill-frontend-ozczl69rf-tsgcfos-projects.vercel.app
+/
+[Error: Your project's URL and Key are required to create a Supabase client! Check your Supabase project's API settings to find these values https://supabase.com/dashboard/project/_/settings/api]
+Live Mode
+Feb 02 16:17:31.05
+GET
+500
+logibill-frontend-ozczl69rf-tsgcfos-projects.vercel.app
+/
+[Error: Your project's URL and Key are required to create a Supabase client! Check your Supabase project's API settings to find these values https://supabase.com/dashboard/project/_/settings/api]
+Feb 02 16:17:30.55
+GET
+500
+logibill-frontend-ozczl69rf-tsgcfos-projects.vercel.app
+/
+[Error: Your project's URL and Key are required to create a Supabase client! Check your Supabase project's API settings to find these values https://supabase.com/dashboard/project/_/settings/api]
+Feb 02 16:17:30.48
+GET
+500
+logibill-frontend-ozczl69rf-tsgcfos-projects.vercel.app
+/
+[Error: Your project's URL and Key are required to create a Supabase client! Check your Supabase project's API settings to find these values https://supabase.com/dashboard/project/_/settings/api]
+Feb 02 16:17:30.19
+GET
+500
+logibill-frontend-ozczl69rf-tsgcfos-projects.vercel.app
+/
+[Error: Your project's URL and Key are required to create a Supabase client! Check your Supabase project's API settings to find these values https://supabase.com/dashboard/project/_/settings/api]
+Feb 02 16:17:30.12
+GET
+500
+logibill-frontend-ozczl69rf-tsgcfos-projects.vercel.app
+/
+[Error: Your project's URL and Key are required to create a Supabase client! Check your Supabase project's API settings to find these values https://supabase.com/dashboard/project/_/settings/api]
+Feb 02 16:17:30.00
+GET
+500
+logibill-frontend-ozczl69rf-tsgcfos-projects.vercel.app
+/
+[Error: Your project's URL and Key are required to create a Supabase clien
