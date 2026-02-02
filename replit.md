@@ -17,6 +17,18 @@ LogiBill is a Next.js 16 frontend application with Supabase authentication and d
     - Fixed JSX namespace for React 19 compatibility
     - Fixed navigator.sendBeacon type guard for SSR safety
   - Production build passes successfully
+  - Users Management Page: Complete rewrite to use real backend API
+    - Full CRUD: Create (with form validation), Edit (role/status/name), Delete (with confirmation)
+    - Four-role system: admin (full access), accountant (billing/invoices/reports), viewer (read-only), customer (own data only)
+    - Super admin user created: h.sadiq@tsgfulfillment.com (id: 7d946aff-168b-4acc-b722-3ce93a0a879f)
+    - Role-based customer dropdown (customer_id required for customer role)
+    - Loading/error states, search functionality, status badges
+
+## User Roles
+- **admin**: Full access to all features
+- **accountant**: Billing, invoices, and reports
+- **viewer**: Read-only access to all data
+- **customer**: Access to own data only (requires customer_id assignment)
 
 ## Tech Stack
 - **Framework**: Next.js 16.1.6 with Turbopack
