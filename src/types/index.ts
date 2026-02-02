@@ -278,6 +278,35 @@ export interface AgingReport {
   }[];
 }
 
+export interface ProfitabilityReport {
+  period: string;
+  total_revenue: number;
+  total_cost: number;
+  gross_profit: number;
+  gross_margin_pct: number;
+  by_customer: {
+    customer_id: number;
+    customer_name: string;
+    revenue: number;
+    cost: number;
+    profit: number;
+    margin_pct: number;
+  }[];
+  by_service: {
+    service_type: string;
+    revenue: number;
+    cost: number;
+    profit: number;
+    margin_pct: number;
+  }[];
+}
+
+export interface ExportReportResponse {
+  download_url: string;
+  filename: string;
+  expires_at: string;
+}
+
 // Activity Types
 export interface Activity {
   id: string;

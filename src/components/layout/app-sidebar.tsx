@@ -15,10 +15,10 @@ import {
   Truck,
   FolderOpen,
   Calculator,
-  Clock,
   Wrench,
   Upload,
 } from "lucide-react";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   Sidebar,
   SidebarContent,
@@ -229,6 +229,42 @@ function NavItem({ item, pathname }: NavItemProps) {
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { canAccessAdmin, isAccountant, canModify, isCustomer } = usePermissions();
+
+  // Filter items based on permissions
+  const filteredMainNavItems = mainNavItems.filter((item) => {
+    // Customer users can only see limited navigation
+    if (isCustomer) {
+      return ["Dashboard", "Orders", "Invoices"].includes(item.title);
+    }
+    // Viewers can't see create-related items
+    if (!canModify && item.items) {
+      return {
+        ...item,
+        items: item.items.filter((sub) => !sub.title.toLowerCase().includes("create")),
+      };
+    }
+    return true;
+  });
+
+  // Filter billing items - only show to non-customer users
+  const filteredBillingItems = isCustomer ? [] : billingNavItems;
+
+  // Filter operations items - only show to non-customer users
+  const filteredOperationsItems = isCustomer ? [] : operationsNavItems;
+
+  // Filter admin items based on role
+  const filteredAdminItems = canAccessAdmin
+    ? adminNavItems
+    : isAccountant
+    ? adminNavItems.map((item) => ({
+        ...item,
+        items: item.items?.filter(
+          (sub) =>
+            !["Users", "Onboarding Tokens", "Settings"].includes(sub.title)
+        ),
+      }))
+    : [];
 
   return (
     <Sidebar collapsible="icon">
@@ -258,36 +294,40 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
+              {filteredMainNavItems.map((item) => (
                 <NavItem key={item.title} item={item} pathname={pathname} />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Billing */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Billing</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {billingNavItems.map((item) => (
-                <NavItem key={item.title} item={item} pathname={pathname} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Billing - hidden for customer users */}
+        {filteredBillingItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Billing</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredBillingItems.map((item) => (
+                  <NavItem key={item.title} item={item} pathname={pathname} />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        {/* Operations */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Operations</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {operationsNavItems.map((item) => (
-                <NavItem key={item.title} item={item} pathname={pathname} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Operations - hidden for customer users */}
+        {filteredOperationsItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Operations</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredOperationsItems.map((item) => (
+                  <NavItem key={item.title} item={item} pathname={pathname} />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Analytics */}
         <SidebarGroup>
@@ -301,17 +341,19 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Admin */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {adminNavItems.map((item) => (
-                <NavItem key={item.title} item={item} pathname={pathname} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Admin - only show to admin/accountant users */}
+        {filteredAdminItems.length > 0 && filteredAdminItems[0]?.items?.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredAdminItems.map((item) => (
+                  <NavItem key={item.title} item={item} pathname={pathname} />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarRail />

@@ -2,7 +2,17 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Save, Plus, Trash2, GripVertical } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Plus,
+  Trash2,
+  GripVertical,
+  Edit2,
+  MoreHorizontal,
+  Power,
+  PowerOff,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,8 +34,82 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
 import { useCustomer } from "@/hooks/use-customers";
+import {
+  useBillingRules,
+  useCreateBillingRule,
+  useUpdateBillingRule,
+  useDeleteBillingRule,
+  useToggleBillingRule,
+  type BillingRuleWithDetails,
+  type CreateBillingRuleData,
+  type UpdateBillingRuleData,
+} from "@/hooks/use-billing-rules";
 import { toast } from "sonner";
+
+// Rule type options
+const RULE_TYPES = [
+  { value: "order_type", label: "Order Type" },
+  { value: "carrier", label: "Carrier" },
+  { value: "conditional", label: "Conditional" },
+  { value: "volume", label: "Volume-Based" },
+  { value: "tiered", label: "Tiered" },
+] as const;
+
+// Condition fields
+const CONDITION_FIELDS = [
+  { value: "order_type", label: "Order Type" },
+  { value: "carrier", label: "Carrier" },
+  { value: "service_level", label: "Service Level" },
+  { value: "items_count", label: "Items Count" },
+  { value: "packages_count", label: "Packages Count" },
+  { value: "total_weight", label: "Total Weight" },
+  { value: "total_picks", label: "Total Picks" },
+  { value: "monthly_orders", label: "Monthly Orders" },
+] as const;
+
+// Operators
+const OPERATORS = [
+  { value: "eq", label: "Equals" },
+  { value: "ne", label: "Not Equals" },
+  { value: "gt", label: "Greater Than" },
+  { value: "gte", label: "Greater or Equal" },
+  { value: "lt", label: "Less Than" },
+  { value: "lte", label: "Less or Equal" },
+  { value: "contains", label: "Contains" },
+] as const;
+
+interface Condition {
+  field: string;
+  operator: string;
+  value: string;
+}
 
 export default function BillingConfigPage({
   params,
@@ -33,13 +117,195 @@ export default function BillingConfigPage({
   params: Promise<{ customerId: string }>;
 }) {
   const { customerId } = use(params);
-  const { data: customer, isLoading } = useCustomer(customerId);
+  const { data: customer, isLoading: customerLoading } = useCustomer(customerId);
+  const { data: rules, isLoading: rulesLoading } = useBillingRules(customerId);
+
+  // Mutation hooks
+  const createRule = useCreateBillingRule();
+  const updateRule = useUpdateBillingRule();
+  const deleteRule = useDeleteBillingRule();
+  const toggleRule = useToggleBillingRule();
+
+  // Dialog state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<BillingRuleWithDetails | null>(null);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    rule_type: "order_type" as string,
+    conditions: [] as Condition[],
+    actions: {} as Record<string, unknown>,
+    priority: 1,
+    is_active: true,
+  });
+
   const [isSaving, setIsSaving] = useState(false);
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      description: "",
+      rule_type: "order_type",
+      conditions: [],
+      actions: {},
+      priority: (rules?.length ?? 0) + 1,
+      is_active: true,
+    });
+  };
+
+  const handleCreateRule = async () => {
+    if (!formData.name.trim()) {
+      toast.error("Rule name is required");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const conditionsObj = formData.conditions.reduce((acc, cond) => {
+        acc[`${cond.field}_${cond.operator}`] = cond.value;
+        return acc;
+      }, {} as Record<string, unknown>);
+
+      await createRule.mutateAsync({
+        customer_id: Number(customerId),
+        rule_type: formData.rule_type as CreateBillingRuleData["rule_type"],
+        name: formData.name,
+        description: formData.description || null,
+        conditions: conditionsObj,
+        actions: formData.actions,
+        priority: formData.priority,
+        is_active: formData.is_active,
+      });
+
+      toast.success("Rule created successfully");
+      setCreateDialogOpen(false);
+      resetForm();
+    } catch {
+      toast.error("Failed to create rule");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateRule = async () => {
+    if (!selectedRule || !formData.name.trim()) {
+      toast.error("Rule name is required");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const conditionsObj = formData.conditions.reduce((acc, cond) => {
+        acc[`${cond.field}_${cond.operator}`] = cond.value;
+        return acc;
+      }, {} as Record<string, unknown>);
+
+      await updateRule.mutateAsync({
+        customerId,
+        ruleId: selectedRule.id,
+        data: {
+          rule_type: formData.rule_type as UpdateBillingRuleData["rule_type"],
+          name: formData.name,
+          description: formData.description || null,
+          conditions: conditionsObj,
+          actions: formData.actions,
+          priority: formData.priority,
+          is_active: formData.is_active,
+        },
+      });
+
+      toast.success("Rule updated successfully");
+      setEditDialogOpen(false);
+      setSelectedRule(null);
+      resetForm();
+    } catch {
+      toast.error("Failed to update rule");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteRule = async () => {
+    if (!selectedRule) return;
+
+    try {
+      await deleteRule.mutateAsync({
+        customerId,
+        ruleId: selectedRule.id,
+      });
+
+      toast.success("Rule deleted successfully");
+      setDeleteDialogOpen(false);
+      setSelectedRule(null);
+    } catch {
+      toast.error("Failed to delete rule");
+    }
+  };
+
+  const handleToggleRule = async (rule: BillingRuleWithDetails) => {
+    try {
+      await toggleRule.mutateAsync({
+        customerId,
+        ruleId: rule.id,
+        isActive: !rule.is_active,
+      });
+
+      toast.success(rule.is_active ? "Rule deactivated" : "Rule activated");
+    } catch {
+      toast.error("Failed to toggle rule");
+    }
+  };
+
+  const openEditDialog = (rule: BillingRuleWithDetails) => {
+    setSelectedRule(rule);
+    setFormData({
+      name: rule.name,
+      description: rule.description || "",
+      rule_type: rule.rule_type,
+      conditions: [], // Parse from rule.conditions if needed
+      actions: rule.actions || {},
+      priority: rule.priority || 1,
+      is_active: rule.is_active,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (rule: BillingRuleWithDetails) => {
+    setSelectedRule(rule);
+    setDeleteDialogOpen(true);
+  };
+
+  const addCondition = () => {
+    setFormData((prev) => ({
+      ...prev,
+      conditions: [...prev.conditions, { field: "order_type", operator: "eq", value: "" }],
+    }));
+  };
+
+  const removeCondition = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      conditions: prev.conditions.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateCondition = (index: number, field: keyof Condition, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      conditions: prev.conditions.map((cond, i) =>
+        i === index ? { ...cond, [field]: value } : cond
+      ),
+    }));
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // API call would go here
+      // API call would go here for general settings
       await new Promise((resolve) => setTimeout(resolve, 1000));
       toast.success("Billing configuration saved");
     } catch {
@@ -49,7 +315,7 @@ export default function BillingConfigPage({
     }
   };
 
-  if (isLoading) {
+  if (customerLoading) {
     return <BillingConfigSkeleton />;
   }
 
@@ -318,67 +584,385 @@ export default function BillingConfigPage({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-end">
-                <Button>
+                <Button
+                  onClick={() => {
+                    resetForm();
+                    setCreateDialogOpen(true);
+                  }}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Rule
                 </Button>
               </div>
 
-              <div className="border rounded-lg divide-y">
-                <RuleItem
-                  name="B2B Order Discount"
-                  type="Order Type"
-                  condition="order_type = 'B2B'"
-                  action="10% discount on pick fee"
-                />
-                <RuleItem
-                  name="High Volume Bonus"
-                  type="Conditional"
-                  condition="monthly_orders > 1000"
-                  action="5% discount on all charges"
-                />
-                <RuleItem
-                  name="FedEx Priority"
-                  type="Carrier"
-                  condition="carrier = 'FedEx'"
-                  action="$0.50 handling fee"
-                />
-              </div>
+              {rulesLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-20 w-full" />
+                  ))}
+                </div>
+              ) : rules && rules.length > 0 ? (
+                <div className="border rounded-lg divide-y">
+                  {rules.map((rule) => (
+                    <RuleItem
+                      key={rule.id}
+                      rule={rule}
+                      onEdit={() => openEditDialog(rule)}
+                      onDelete={() => openDeleteDialog(rule)}
+                      onToggle={() => handleToggleRule(rule)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground border rounded-lg">
+                  <p>No custom rules configured</p>
+                  <p className="text-sm">Add rules to customize billing for this customer</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Create Rule Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Create Billing Rule</DialogTitle>
+            <DialogDescription>
+              Add a new billing rule for {customer?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <RuleForm
+            formData={formData}
+            setFormData={setFormData}
+            addCondition={addCondition}
+            removeCondition={removeCondition}
+            updateCondition={updateCondition}
+          />
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialogOpen(false)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateRule} disabled={isSaving}>
+              {isSaving ? "Creating..." : "Create Rule"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Rule Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Edit Billing Rule</DialogTitle>
+            <DialogDescription>
+              Update the billing rule configuration
+            </DialogDescription>
+          </DialogHeader>
+
+          <RuleForm
+            formData={formData}
+            setFormData={setFormData}
+            addCondition={addCondition}
+            removeCondition={removeCondition}
+            updateCondition={updateCondition}
+          />
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateRule} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Billing Rule?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{selectedRule?.name}&quot;? This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteRule}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 function RuleItem({
-  name,
-  type,
-  condition,
-  action,
+  rule,
+  onEdit,
+  onDelete,
+  onToggle,
 }: {
-  name: string;
-  type: string;
-  condition: string;
-  action: string;
+  rule: BillingRuleWithDetails;
+  onEdit: () => void;
+  onDelete: () => void;
+  onToggle: () => void;
 }) {
+  const ruleTypeLabel =
+    RULE_TYPES.find((t) => t.value === rule.rule_type)?.label || rule.rule_type;
+
   return (
-    <div className="flex items-center gap-4 p-4">
-      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+    <div
+      className="flex items-center gap-4 p-4"
+      data-testid="billing-rule"
+    >
+      <GripVertical
+        className="h-4 w-4 text-muted-foreground cursor-grab"
+        data-testid="drag-handle"
+      />
       <div className="flex-1 space-y-1">
         <div className="flex items-center gap-2">
-          <span className="font-medium">{name}</span>
-          <Badge variant="outline">{type}</Badge>
+          <span className={`font-medium ${!rule.is_active ? "text-muted-foreground" : ""}`}>
+            {rule.name}
+          </span>
+          <Badge variant="outline">{ruleTypeLabel}</Badge>
+          {!rule.is_active && (
+            <Badge variant="secondary">Inactive</Badge>
+          )}
         </div>
-        <p className="text-sm text-muted-foreground">
-          If <code className="bg-muted px-1 rounded">{condition}</code> then{" "}
-          <span className="text-foreground">{action}</span>
-        </p>
+        {rule.description && (
+          <p className="text-sm text-muted-foreground">{rule.description}</p>
+        )}
       </div>
-      <Button variant="ghost" size="icon" className="text-destructive">
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <Switch
+        checked={rule.is_active}
+        onCheckedChange={onToggle}
+        aria-label={rule.is_active ? "Deactivate rule" : "Activate rule"}
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onEdit}>
+            <Edit2 className="mr-2 h-4 w-4" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onToggle}>
+            {rule.is_active ? (
+              <>
+                <PowerOff className="mr-2 h-4 w-4" />
+                Deactivate
+              </>
+            ) : (
+              <>
+                <Power className="mr-2 h-4 w-4" />
+                Activate
+              </>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={onDelete}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+interface Condition {
+  field: string;
+  operator: string;
+  value: string;
+}
+
+interface FormData {
+  name: string;
+  description: string;
+  rule_type: string;
+  conditions: Condition[];
+  actions: Record<string, unknown>;
+  priority: number;
+  is_active: boolean;
+}
+
+function RuleForm({
+  formData,
+  setFormData,
+  addCondition,
+  removeCondition,
+  updateCondition,
+}: {
+  formData: FormData;
+  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
+  addCondition: () => void;
+  removeCondition: (index: number) => void;
+  updateCondition: (index: number, field: keyof Condition, value: string) => void;
+}) {
+  const isConditional = formData.rule_type === "conditional";
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="rule-name">
+            Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="rule-name"
+            value={formData.name}
+            onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+            placeholder="Rule name"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="rule-type">Rule Type</Label>
+          <Select
+            value={formData.rule_type}
+            onValueChange={(value) => setFormData((prev) => ({ ...prev, rule_type: value }))}
+          >
+            <SelectTrigger id="rule-type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {RULE_TYPES.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="rule-description">Description</Label>
+        <Textarea
+          id="rule-description"
+          value={formData.description}
+          onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+          placeholder="Describe what this rule does..."
+          rows={2}
+        />
+      </div>
+
+      {isConditional && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label>Conditions</Label>
+            <Button type="button" variant="outline" size="sm" onClick={addCondition}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Condition
+            </Button>
+          </div>
+
+          {formData.conditions.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4 border rounded-lg">
+              No conditions added. Click &quot;Add Condition&quot; to define rule criteria.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {formData.conditions.map((condition, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 p-3 border rounded-lg"
+                  data-testid="condition-row"
+                >
+                  {index > 0 && (
+                    <Badge variant="secondary" className="mr-2">
+                      AND
+                    </Badge>
+                  )}
+                  <Select
+                    value={condition.field}
+                    onValueChange={(value) => updateCondition(index, "field", value)}
+                  >
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Field" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CONDITION_FIELDS.map((field) => (
+                        <SelectItem key={field.value} value={field.value}>
+                          {field.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={condition.operator}
+                    onValueChange={(value) => updateCondition(index, "operator", value)}
+                  >
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Operator" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OPERATORS.map((op) => (
+                        <SelectItem key={op.value} value={op.value}>
+                          {op.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Input
+                    value={condition.value}
+                    onChange={(e) => updateCondition(index, "value", e.target.value)}
+                    placeholder="Value"
+                    className="flex-1"
+                  />
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeCondition(index)}
+                    aria-label="Remove condition"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Switch
+          id="rule-active"
+          checked={formData.is_active}
+          onCheckedChange={(checked) =>
+            setFormData((prev) => ({ ...prev, is_active: checked }))
+          }
+        />
+        <Label htmlFor="rule-active">Rule is active</Label>
+      </div>
     </div>
   );
 }

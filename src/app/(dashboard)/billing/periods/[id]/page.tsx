@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useBillingPeriod, useCloseBillingPeriod } from "@/hooks/use-billing";
+import { useBillingPeriod, useClosePeriod } from "@/hooks/use-billing";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -156,11 +156,11 @@ export default function BillingPeriodDetailPage({
 }) {
   const { id } = use(params);
   const { data: period, isLoading, error } = useBillingPeriod(id);
-  const closePeriod = useCloseBillingPeriod();
+  const closePeriod = useClosePeriod(id);
 
   const handleClosePeriod = async () => {
     try {
-      await closePeriod.mutateAsync(id);
+      await closePeriod.mutateAsync();
       toast.success("Period closed successfully");
     } catch {
       toast.error("Failed to close period");

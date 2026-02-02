@@ -67,11 +67,11 @@ export default function GenerateOnboardingTokenPage() {
 
   const generateToken = useMutation({
     mutationFn: async (data: GenerateTokenRequest) => {
-      const response = await api.post<{ data: GeneratedToken }>(
+      const response = await api.post<GeneratedToken>(
         "/api/v1/admin/onboarding-tokens",
         data
       );
-      return response.data.data;
+      return response.data!;
     },
     onSuccess: (data) => {
       setGeneratedToken(data);

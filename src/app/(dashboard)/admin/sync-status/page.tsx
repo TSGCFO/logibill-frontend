@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   RefreshCw,
   CheckCircle,
@@ -10,6 +9,7 @@ import {
   Truck,
   AlertTriangle,
   Play,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,94 +29,155 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
+import {
+  useSyncStatus,
+  useTriggerWmsSync,
+  useTriggerTechShipSync,
+  type SyncStatus,
+} from "@/hooks/use-admin";
 
-interface SyncJob {
-  id: string;
-  type: "wms" | "techship";
-  status: "running" | "completed" | "failed" | "pending";
-  started_at: string;
-  completed_at?: string;
-  records_processed: number;
-  records_total: number;
-  errors?: string[];
-}
-
-const mockSyncJobs: SyncJob[] = [
-  {
-    id: "1",
-    type: "wms",
-    status: "completed",
-    started_at: "2024-01-15T10:00:00Z",
-    completed_at: "2024-01-15T10:05:32Z",
-    records_processed: 1250,
-    records_total: 1250,
-  },
-  {
-    id: "2",
-    type: "techship",
-    status: "completed",
-    started_at: "2024-01-15T09:00:00Z",
-    completed_at: "2024-01-15T09:12:45Z",
-    records_processed: 485,
-    records_total: 485,
-  },
-  {
-    id: "3",
-    type: "wms",
-    status: "failed",
-    started_at: "2024-01-14T22:00:00Z",
-    completed_at: "2024-01-14T22:01:15Z",
-    records_processed: 150,
-    records_total: 1200,
-    errors: ["Connection timeout after 60 seconds", "Retry limit exceeded"],
-  },
-  {
-    id: "4",
-    type: "techship",
-    status: "completed",
-    started_at: "2024-01-14T21:00:00Z",
-    completed_at: "2024-01-14T21:08:20Z",
-    records_processed: 320,
-    records_total: 320,
-  },
-];
-
+/**
+ * Sync Status Page
+ *
+ * Displays real-time sync status for WMS and TechShip integrations.
+ * Connected to API via useSyncStatus hook.
+ *
+ * Track: frontend-prod_20260202
+ * Task: 1.2
+ */
 export default function SyncStatusPage() {
-  const [isWmsSyncing, setIsWmsSyncing] = useState(false);
-  const [isTechshipSyncing, setIsTechshipSyncing] = useState(false);
+  // Fetch sync status from API
+  const {
+    data: syncStatus,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useSyncStatus();
+
+  // Sync trigger mutations
+  const wmsSyncMutation = useTriggerWmsSync();
+  const techshipSyncMutation = useTriggerTechShipSync();
 
   const handleWmsSync = async () => {
-    setIsWmsSyncing(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      toast.success("WMS sync completed", {
-        description: "Successfully synced 1,250 orders",
+      const result = await wmsSyncMutation.mutateAsync();
+      toast.success("WMS sync started", {
+        description: result.message || "Sync job has been queued",
       });
-    } catch {
-      toast.error("WMS sync failed");
-    } finally {
-      setIsWmsSyncing(false);
+    } catch (err) {
+      toast.error("WMS sync failed", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   };
 
   const handleTechshipSync = async () => {
-    setIsTechshipSyncing(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      toast.success("TechShip sync completed", {
-        description: "Successfully synced 485 shipments",
+      const result = await techshipSyncMutation.mutateAsync();
+      toast.success("TechShip sync started", {
+        description: result.message || "Sync job has been queued",
       });
-    } catch {
-      toast.error("TechShip sync failed");
-    } finally {
-      setIsTechshipSyncing(false);
+    } catch (err) {
+      toast.error("TechShip sync failed", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
     }
   };
 
-  const lastWmsSync = mockSyncJobs.find((j) => j.type === "wms" && j.status === "completed");
-  const lastTechshipSync = mockSyncJobs.find((j) => j.type === "techship" && j.status === "completed");
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6" data-testid="sync-status-loading">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Sync Status</h1>
+            <p className="text-muted-foreground">
+              Monitor and manage data synchronization from external systems
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-4 w-48" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Skeleton className="h-4 w-16 mb-2" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+                <div>
+                  <Skeleton className="h-4 w-16 mb-2" />
+                  <Skeleton className="h-5 w-16" />
+                </div>
+              </div>
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-4 w-48" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Skeleton className="h-4 w-16 mb-2" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+                <div>
+                  <Skeleton className="h-4 w-16 mb-2" />
+                  <Skeleton className="h-5 w-16" />
+                </div>
+              </div>
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (isError) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Sync Status</h1>
+            <p className="text-muted-foreground">
+              Monitor and manage data synchronization from external systems
+            </p>
+          </div>
+        </div>
+
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error loading sync status</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : "Failed to load sync status"}
+          </AlertDescription>
+        </Alert>
+
+        <Button onClick={() => refetch()} variant="outline">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  const wmsStatus = syncStatus?.wms;
+  const techshipStatus = syncStatus?.techship;
 
   return (
     <div className="space-y-6">
@@ -128,12 +189,16 @@ export default function SyncStatusPage() {
             Monitor and manage data synchronization from external systems
           </p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
       </div>
 
       {/* Sync Cards */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* WMS Sync Card */}
-        <Card>
+        <Card data-testid="wms-sync-card">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -141,11 +206,13 @@ export default function SyncStatusPage() {
                 <CardTitle>WMS (Extensiv)</CardTitle>
               </div>
               <Badge
-                variant={lastWmsSync ? "default" : "secondary"}
+                variant={wmsStatus?.status === "completed" ? "default" : "secondary"}
                 className="gap-1"
               >
-                <CheckCircle className="h-3 w-3" />
-                Connected
+                {wmsStatus?.status === "completed" && <CheckCircle className="h-3 w-3" />}
+                {wmsStatus?.status === "running" && <RefreshCw className="h-3 w-3 animate-spin" />}
+                {wmsStatus?.status === "failed" && <XCircle className="h-3 w-3" />}
+                {wmsStatus?.last_sync_at ? "Connected" : "Not Synced"}
               </Badge>
             </div>
             <CardDescription>
@@ -157,37 +224,48 @@ export default function SyncStatusPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Last Sync</p>
                 <p className="font-medium">
-                  {lastWmsSync
-                    ? formatDateTime(lastWmsSync.completed_at!)
+                  {wmsStatus?.last_sync_at
+                    ? formatDateTime(wmsStatus.last_sync_at)
                     : "Never"}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Records</p>
                 <p className="font-medium">
-                  {lastWmsSync
-                    ? formatNumber(lastWmsSync.records_processed)
+                  {wmsStatus?.records_synced
+                    ? formatNumber(wmsStatus.records_synced)
                     : "0"}
                 </p>
               </div>
             </div>
 
-            {isWmsSyncing && (
+            {/* Show errors if any */}
+            {wmsStatus?.errors && wmsStatus.errors.length > 0 && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Sync Errors</AlertTitle>
+                <AlertDescription>
+                  {wmsStatus.errors.join(", ")}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Show progress if running */}
+            {(wmsStatus?.status === "running" || wmsSyncMutation.isPending) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span>Syncing...</span>
-                  <span>65%</span>
                 </div>
-                <Progress value={65} />
+                <Progress value={undefined} className="animate-pulse" />
               </div>
             )}
 
             <Button
               className="w-full"
               onClick={handleWmsSync}
-              disabled={isWmsSyncing}
+              disabled={wmsSyncMutation.isPending || wmsStatus?.status === "running"}
             >
-              {isWmsSyncing ? (
+              {wmsSyncMutation.isPending || wmsStatus?.status === "running" ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   Syncing...
@@ -203,7 +281,7 @@ export default function SyncStatusPage() {
         </Card>
 
         {/* TechShip Sync Card */}
-        <Card>
+        <Card data-testid="techship-sync-card">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -211,11 +289,13 @@ export default function SyncStatusPage() {
                 <CardTitle>TechShip</CardTitle>
               </div>
               <Badge
-                variant={lastTechshipSync ? "default" : "secondary"}
+                variant={techshipStatus?.status === "completed" ? "default" : "secondary"}
                 className="gap-1"
               >
-                <CheckCircle className="h-3 w-3" />
-                Connected
+                {techshipStatus?.status === "completed" && <CheckCircle className="h-3 w-3" />}
+                {techshipStatus?.status === "running" && <RefreshCw className="h-3 w-3 animate-spin" />}
+                {techshipStatus?.status === "failed" && <XCircle className="h-3 w-3" />}
+                {techshipStatus?.last_sync_at ? "Connected" : "Not Synced"}
               </Badge>
             </div>
             <CardDescription>Shipping costs and tracking data</CardDescription>
@@ -225,37 +305,48 @@ export default function SyncStatusPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Last Sync</p>
                 <p className="font-medium">
-                  {lastTechshipSync
-                    ? formatDateTime(lastTechshipSync.completed_at!)
+                  {techshipStatus?.last_sync_at
+                    ? formatDateTime(techshipStatus.last_sync_at)
                     : "Never"}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Records</p>
                 <p className="font-medium">
-                  {lastTechshipSync
-                    ? formatNumber(lastTechshipSync.records_processed)
+                  {techshipStatus?.records_synced
+                    ? formatNumber(techshipStatus.records_synced)
                     : "0"}
                 </p>
               </div>
             </div>
 
-            {isTechshipSyncing && (
+            {/* Show errors if any */}
+            {techshipStatus?.errors && techshipStatus.errors.length > 0 && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Sync Errors</AlertTitle>
+                <AlertDescription>
+                  {techshipStatus.errors.join(", ")}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Show progress if running */}
+            {(techshipStatus?.status === "running" || techshipSyncMutation.isPending) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span>Syncing...</span>
-                  <span>42%</span>
                 </div>
-                <Progress value={42} />
+                <Progress value={undefined} className="animate-pulse" />
               </div>
             )}
 
             <Button
               className="w-full"
               onClick={handleTechshipSync}
-              disabled={isTechshipSyncing}
+              disabled={techshipSyncMutation.isPending || techshipStatus?.status === "running"}
             >
-              {isTechshipSyncing ? (
+              {techshipSyncMutation.isPending || techshipStatus?.status === "running" ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   Syncing...
@@ -271,92 +362,7 @@ export default function SyncStatusPage() {
         </Card>
       </div>
 
-      {/* Sync History */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Sync History</CardTitle>
-          <CardDescription>Recent synchronization jobs</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Source</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Started</TableHead>
-                <TableHead>Completed</TableHead>
-                <TableHead className="text-right">Records</TableHead>
-                <TableHead>Errors</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockSyncJobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {job.type === "wms" ? (
-                        <Database className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <Truck className="h-4 w-4 text-green-500" />
-                      )}
-                      <span className="font-medium">
-                        {job.type === "wms" ? "WMS" : "TechShip"}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        job.status === "completed"
-                          ? "default"
-                          : job.status === "running"
-                          ? "secondary"
-                          : job.status === "failed"
-                          ? "destructive"
-                          : "outline"
-                      }
-                    >
-                      {job.status === "completed" && (
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                      )}
-                      {job.status === "running" && (
-                        <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
-                      )}
-                      {job.status === "failed" && (
-                        <XCircle className="mr-1 h-3 w-3" />
-                      )}
-                      {job.status === "pending" && (
-                        <Clock className="mr-1 h-3 w-3" />
-                      )}
-                      {job.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDateTime(job.started_at)}</TableCell>
-                  <TableCell>
-                    {job.completed_at ? formatDateTime(job.completed_at) : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatNumber(job.records_processed)} /{" "}
-                    {formatNumber(job.records_total)}
-                  </TableCell>
-                  <TableCell>
-                    {job.errors && job.errors.length > 0 ? (
-                      <Badge variant="destructive" className="gap-1">
-                        <AlertTriangle className="h-3 w-3" />
-                        {job.errors.length} error(s)
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">None</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Schedule Info */}
+      {/* Sync Schedule Info */}
       <Card>
         <CardHeader>
           <CardTitle>Sync Schedule</CardTitle>
@@ -378,7 +384,7 @@ export default function SyncStatusPage() {
               </div>
               <Badge variant="outline">
                 <Clock className="mr-1 h-3 w-3" />
-                Next: 11:00 AM
+                Automatic
               </Badge>
             </div>
             <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -393,7 +399,7 @@ export default function SyncStatusPage() {
               </div>
               <Badge variant="outline">
                 <Clock className="mr-1 h-3 w-3" />
-                Next: Tomorrow
+                Automatic
               </Badge>
             </div>
           </div>

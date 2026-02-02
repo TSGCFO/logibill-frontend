@@ -451,6 +451,62 @@ export function useBulkSendInvoices() {
   });
 }
 
+/**
+ * Void an invoice
+ * POST /api/v1/invoices/{id}/void
+ */
+export function useVoidInvoice(id: number | string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reason: string): Promise<Invoice> => {
+      const response = await api.post<Invoice>(
+        `${endpoints.invoices.detail(id)}/void`,
+        { reason }
+      );
+      if (!response.data) {
+        throw new Error("Failed to void invoice");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+    },
+  });
+}
+
+/**
+ * Record a payment for an invoice
+ * POST /api/v1/invoices/{id}/payments
+ */
+export function useRecordPayment(id: number | string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      amount: number;
+      payment_date: string;
+      payment_method?: string;
+      reference?: string;
+      notes?: string;
+    }): Promise<Invoice> => {
+      const response = await api.post<Invoice>(
+        `${endpoints.invoices.detail(id)}/payments`,
+        data
+      );
+      if (!response.data) {
+        throw new Error("Failed to record payment");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+    },
+  });
+}
+
 // ============================================================================
 // Utility Hooks
 // ============================================================================

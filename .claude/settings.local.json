@@ -11,7 +11,11 @@
       "mcp__plugin_serena_serena__read_file",
       "mcp__plugin_serena_serena__create_text_file",
       "mcp__plugin_serena_serena__replace_content",
-      "mcp__plugin_serena_serena__think_about_whether_you_are_done"
+      "mcp__plugin_serena_serena__think_about_whether_you_are_done",
+      "mcp__plugin_serena_serena__initial_instructions",
+      "mcp__plugin_serena_serena__think_about_collected_information",
+      "mcp__plugin_serena_serena__think_about_task_adherence",
+      "mcp__plugin_serena_serena__search_for_pattern"
     ]
   }
 }

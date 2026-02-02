@@ -1,6 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Routes that require admin role
+const adminOnlyRoutes = [
+  "/admin/users",
+  "/admin/settings",
+  "/admin/onboarding-tokens",
+];
+
+// Routes that require at least accountant role (admin or accountant)
+const accountantRoutes = [
+  "/admin/sync-status",
+  "/admin/periods",
+  "/admin/accrual",
+];
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -50,6 +64,7 @@ export async function updateSession(request: NextRequest) {
     "/services",
     "/inventory",
     "/files",
+    "/unauthorized",
   ];
 
   const isProtectedPath = protectedPaths.some(
@@ -76,6 +91,38 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
+  }
+
+  // Role-based access control
+  // Note: We check user metadata for role since we can't access our API from middleware
+  // The actual role is stored in our database and synced to Supabase user metadata
+  if (user) {
+    const pathname = request.nextUrl.pathname;
+
+    // Get role from user metadata (set during login/signup)
+    const userRole = user.user_metadata?.role as string | undefined;
+
+    // Check admin-only routes
+    const isAdminRoute = adminOnlyRoutes.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
+
+    if (isAdminRoute && userRole !== "admin") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/unauthorized";
+      return NextResponse.redirect(url);
+    }
+
+    // Check accountant routes (require admin or accountant)
+    const isAccountantRoute = accountantRoutes.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
+
+    if (isAccountantRoute && !["admin", "accountant"].includes(userRole || "")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/unauthorized";
+      return NextResponse.redirect(url);
+    }
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're

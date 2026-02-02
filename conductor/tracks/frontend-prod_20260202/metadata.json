@@ -1,0 +1,24 @@
+{
+  "id": "frontend-prod_20260202",
+  "title": "Frontend Production Ready",
+  "type": "feature",
+  "status": "in_progress",
+  "priority": "critical",
+  "created": "2026-02-02T00:00:00Z",
+  "updated": "2026-02-02T00:00:00Z",
+  "current_phase": 6,
+  "current_task": "6.1",
+  "phases": {
+    "total": 6,
+    "completed": 5
+  },
+  "tasks": {
+    "total": 39,
+    "completed": 31
+  },
+  "commits": [],
+  "workflow": {
+    "tdd": true,
+    "strictness": "moderate"
+  }
+}

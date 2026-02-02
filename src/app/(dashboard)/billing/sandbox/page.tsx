@@ -8,6 +8,7 @@ import {
   CheckCircle,
   Code,
   FileJson,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,31 +37,46 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useCustomers } from "@/hooks/use-customers";
+import {
+  useBillingSandbox,
+  type SandboxTestData,
+  type SandboxTestResult,
+} from "@/hooks/use-billing-rules";
 import { formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
-interface SandboxResult {
-  order_id: string;
-  charges: {
-    type: string;
-    description: string;
-    quantity: number;
-    rate: number;
-    amount: number;
-    rule_applied?: string;
-  }[];
-  total: number;
-  evaluation_trace: string[];
-}
-
+/**
+ * Billing Sandbox Page
+ *
+ * Test billing rules with sample orders before applying to production.
+ * Connected to real API via useBillingSandbox hook.
+ *
+ * Track: frontend-prod_20260202
+ * Task: 4.6
+ */
 export default function BillingSandboxPage() {
   const { data: customersData } = useCustomers();
   const customers = customersData?.data ?? [];
   const [customerId, setCustomerId] = useState<string>("");
   const [orderJson, setOrderJson] = useState(sampleOrder);
-  const [isRunning, setIsRunning] = useState(false);
-  const [results, setResults] = useState<SandboxResult | null>(null);
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [results, setResults] = useState<SandboxTestResult | null>(null);
+
+  // Use the real sandbox mutation hook
+  const sandboxMutation = useBillingSandbox();
+
+  const validateJson = (json: string): boolean => {
+    try {
+      JSON.parse(json);
+      setJsonError(null);
+      return true;
+    } catch {
+      setJsonError("Invalid JSON format. Please check your order data.");
+      return false;
+    }
+  };
 
   const handleRunSandbox = async () => {
     if (!customerId) {
@@ -68,68 +84,37 @@ export default function BillingSandboxPage() {
       return;
     }
 
-    setIsRunning(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // Mock results
-      setResults({
-        order_id: "ORD-12345",
-        charges: [
-          {
-            type: "Pick",
-            description: "Item picking (15 items)",
-            quantity: 15,
-            rate: 0.35,
-            amount: 5.25,
-            rule_applied: "Standard pick rate",
-          },
-          {
-            type: "Pack",
-            description: "Package handling (2 packages)",
-            quantity: 2,
-            rate: 1.50,
-            amount: 3.00,
-            rule_applied: "Standard pack rate",
-          },
-          {
-            type: "Materials",
-            description: "Box - Medium (2)",
-            quantity: 2,
-            rate: 0.85,
-            amount: 1.70,
-            rule_applied: "Global materials pricing",
-          },
-          {
-            type: "Shipping",
-            description: "FedEx Ground + 15% markup",
-            quantity: 1,
-            rate: 12.50,
-            amount: 14.38,
-            rule_applied: "Carrier markup rule",
-          },
-        ],
-        total: 24.33,
-        evaluation_trace: [
-          "Starting billing evaluation for order ORD-12345",
-          "Customer: Vasanti Cosmetics (VAS)",
-          "Order type: B2C",
-          "Checking order type rules... No match",
-          "Checking carrier rules... Match: FedEx markup 15%",
-          "Applying pick rate: $0.35 × 15 items = $5.25",
-          "Applying pack rate: $1.50 × 2 packages = $3.00",
-          "Applying materials pricing: Medium box × 2 = $1.70",
-          "Applying shipping: $12.50 + 15% = $14.38",
-          "Total calculated: $24.33",
-        ],
+    if (!validateJson(orderJson)) {
+      toast.error("Invalid JSON", {
+        description: "Please fix the JSON format before running the sandbox.",
       });
+      return;
+    }
 
-      toast.success("Sandbox evaluation complete");
-    } catch {
-      toast.error("Failed to run sandbox");
-    } finally {
-      setIsRunning(false);
+    try {
+      const orderData = JSON.parse(orderJson);
+
+      const sandboxData: SandboxTestData = {
+        customer_id: Number(customerId),
+        order_data: orderData,
+      };
+
+      const result = await sandboxMutation.mutateAsync(sandboxData);
+      setResults(result);
+      toast.success("Sandbox evaluation complete", {
+        description: `Total: ${formatCurrency(result.total)} (${result.execution_time_ms}ms)`,
+      });
+    } catch (error) {
+      toast.error("Failed to run sandbox", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  };
+
+  const handleJsonChange = (value: string) => {
+    setOrderJson(value);
+    if (jsonError) {
+      validateJson(value);
     }
   };
 
@@ -177,7 +162,10 @@ export default function BillingSandboxPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setOrderJson(sampleOrder)}
+                  onClick={() => {
+                    setOrderJson(sampleOrder);
+                    setJsonError(null);
+                  }}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Reset to Sample
@@ -185,19 +173,26 @@ export default function BillingSandboxPage() {
               </div>
               <Textarea
                 value={orderJson}
-                onChange={(e) => setOrderJson(e.target.value)}
+                onChange={(e) => handleJsonChange(e.target.value)}
                 rows={15}
-                className="font-mono text-sm"
+                className={`font-mono text-sm ${jsonError ? "border-destructive" : ""}`}
                 placeholder="Paste order JSON here..."
               />
+              {jsonError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Invalid JSON</AlertTitle>
+                  <AlertDescription>{jsonError}</AlertDescription>
+                </Alert>
+              )}
             </div>
 
             <Button
               className="w-full"
               onClick={handleRunSandbox}
-              disabled={isRunning || !customerId}
+              disabled={sandboxMutation.isPending || !customerId}
             >
-              {isRunning ? (
+              {sandboxMutation.isPending ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                   Running Evaluation...
@@ -236,11 +231,19 @@ export default function BillingSandboxPage() {
                     </span>
                   </div>
 
+                  {results.execution_time_ms && (
+                    <p className="text-sm text-muted-foreground text-right">
+                      Evaluated in {results.execution_time_ms}ms
+                    </p>
+                  )}
+
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Type</TableHead>
                         <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Rate</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -260,6 +263,12 @@ export default function BillingSandboxPage() {
                               )}
                             </div>
                           </TableCell>
+                          <TableCell className="text-right">
+                            {charge.quantity}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(charge.unit_price)}
+                          </TableCell>
                           <TableCell className="text-right font-medium">
                             {formatCurrency(charge.amount)}
                           </TableCell>
@@ -270,22 +279,40 @@ export default function BillingSandboxPage() {
                 </TabsContent>
 
                 <TabsContent value="trace">
-                  <div className="space-y-2 font-mono text-sm">
-                    {results.evaluation_trace.map((line, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-2 p-2 rounded hover:bg-muted"
-                      >
-                        {line.includes("Match") ? (
-                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
-                        ) : line.includes("No match") ? (
-                          <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
-                        ) : (
-                          <Code className="h-4 w-4 text-blue-500 mt-0.5" />
-                        )}
-                        <span>{line}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-2">
+                    {results.rules_evaluated.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        No rules were evaluated for this order.
+                      </p>
+                    ) : (
+                      results.rules_evaluated.map((rule, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-2 p-3 rounded-lg border"
+                        >
+                          {rule.matched ? (
+                            <CheckCircle className="h-4 w-4 text-green-500 mt-0.5" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
+                          )}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{rule.name}</span>
+                              <Badge
+                                variant={rule.matched ? "default" : "secondary"}
+                              >
+                                {rule.matched ? "Matched" : "No Match"}
+                              </Badge>
+                            </div>
+                            {rule.reason && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {rule.reason}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>
@@ -301,6 +328,25 @@ export default function BillingSandboxPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Comparison Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Comparison</CardTitle>
+          <CardDescription>
+            Compare sandbox results with actual billing data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground">
+            <Code className="h-8 w-8 mx-auto mb-4 opacity-50" />
+            <p>Run the sandbox first to compare results</p>
+            <p className="text-sm">
+              After running, you can compare sandbox estimates with actual historical charges
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

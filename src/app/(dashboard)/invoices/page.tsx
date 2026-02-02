@@ -38,13 +38,13 @@ import {
 } from "@/components/ui/popover";
 import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
-import { useInvoices, useInvoicePdfUrl, useSendInvoice } from "@/hooks/use-invoices";
+import { useInvoices, useInvoicePdf, useSendInvoice } from "@/hooks/use-invoices";
 import { formatDate, formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 import type { Invoice } from "@/types";
 
 function InvoiceActions({ invoice }: { invoice: Invoice }) {
-  const pdfUrl = useInvoicePdfUrl(invoice.id);
+  const { url: pdfUrl } = useInvoicePdf(invoice.id);
   const sendInvoice = useSendInvoice();
 
   const handleSend = async () => {

@@ -25,20 +25,20 @@ import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
 import {
   useBillingPeriods,
-  useCloseBillingPeriod,
-  useReopenBillingPeriod,
+  useClosePeriod,
+  useReopenPeriod,
 } from "@/hooks/use-billing";
 import { formatDate, formatCurrency, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
 import type { BillingPeriod } from "@/types";
 
 function PeriodActions({ period }: { period: BillingPeriod }) {
-  const closePeriod = useCloseBillingPeriod();
-  const reopenPeriod = useReopenBillingPeriod();
+  const closePeriod = useClosePeriod(period.id);
+  const reopenPeriod = useReopenPeriod(period.id);
 
   const handleClose = async () => {
     try {
-      await closePeriod.mutateAsync(period.id);
+      await closePeriod.mutateAsync();
       toast.success("Period closed", {
         description: "The billing period has been closed",
       });
@@ -49,7 +49,7 @@ function PeriodActions({ period }: { period: BillingPeriod }) {
 
   const handleReopen = async () => {
     try {
-      await reopenPeriod.mutateAsync(period.id);
+      await reopenPeriod.mutateAsync();
       toast.success("Period reopened", {
         description: "The billing period has been reopened",
       });

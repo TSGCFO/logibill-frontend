@@ -79,10 +79,10 @@ export default function OnboardingTokensPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["onboarding-token-stats"],
     queryFn: async () => {
-      const response = await api.get<{ data: TokenStats }>(
+      const response = await api.get<TokenStats>(
         "/api/v1/admin/onboarding-tokens/stats"
       );
-      return response.data.data;
+      return response.data;
     },
   });
 

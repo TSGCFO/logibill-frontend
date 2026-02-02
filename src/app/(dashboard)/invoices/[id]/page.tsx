@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -14,6 +14,8 @@ import {
   Plus,
   Trash2,
   FileText,
+  DollarSign,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,10 +58,18 @@ import {
 import {
   useInvoice,
   useInvoiceLineItems,
-  useInvoicePdfUrl,
+  useInvoicePdf,
   useSendInvoice,
-  useDeleteInvoiceLineItem,
+  useDeleteLineItem,
+  useVoidInvoice,
+  useRecordPayment,
 } from "@/hooks/use-invoices";
+import {
+  EmailPreviewDialog,
+  VoidInvoiceDialog,
+  RecordPaymentDialog,
+  type PaymentData,
+} from "@/components/invoices";
 import { formatDate, formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -78,11 +88,22 @@ export default function InvoiceDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+
+  // Dialog state
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+
+  // Query hooks
   const { data: invoice, isLoading, error } = useInvoice(id);
   const { data: lineItems, isLoading: lineItemsLoading } = useInvoiceLineItems(id);
-  const pdfUrl = useInvoicePdfUrl(id);
-  const sendInvoice = useSendInvoice();
-  const deleteLineItem = useDeleteInvoiceLineItem(id);
+  const { url: pdfUrl } = useInvoicePdf(id);
+
+  // Mutation hooks
+  const sendInvoice = useSendInvoice(id);
+  const deleteLineItem = useDeleteLineItem(id);
+  const voidInvoice = useVoidInvoice(id);
+  const recordPayment = useRecordPayment(id);
 
   if (error) {
     notFound();
@@ -96,14 +117,43 @@ export default function InvoiceDetailPage({
     notFound();
   }
 
-  const handleSend = async () => {
+  // Calculate amount due (total - paid amount)
+  const amountPaid = invoice.amount_paid ?? 0;
+  const amountDue = invoice.total - amountPaid;
+
+  const handleSendEmail = async (email: string, cc?: string) => {
     try {
-      await sendInvoice.mutateAsync(id);
+      await sendInvoice.mutateAsync();
       toast.success("Invoice sent", {
-        description: `Invoice ${invoice.invoice_number} has been sent to the customer`,
+        description: `Invoice ${invoice.invoice_number} has been sent to ${email}`,
       });
     } catch {
       toast.error("Failed to send invoice");
+      throw new Error("Failed to send invoice");
+    }
+  };
+
+  const handleVoid = async (reason: string) => {
+    try {
+      await voidInvoice.mutateAsync(reason);
+      toast.success("Invoice voided", {
+        description: `Invoice ${invoice.invoice_number} has been voided`,
+      });
+    } catch {
+      toast.error("Failed to void invoice");
+      throw new Error("Failed to void invoice");
+    }
+  };
+
+  const handleRecordPayment = async (data: PaymentData) => {
+    try {
+      await recordPayment.mutateAsync(data);
+      toast.success("Payment recorded", {
+        description: `Payment of ${formatCurrency(data.amount)} has been recorded`,
+      });
+    } catch {
+      toast.error("Failed to record payment");
+      throw new Error("Failed to record payment");
     }
   };
 
@@ -115,6 +165,14 @@ export default function InvoiceDetailPage({
       toast.error("Failed to delete line item");
     }
   };
+
+  // Determine which actions are available based on status
+  const canSend = invoice.status === "draft" || invoice.status === "pending";
+  const canVoid = invoice.status !== "void" && invoice.status !== "paid";
+  const canRecordPayment =
+    invoice.status !== "void" &&
+    invoice.status !== "paid" &&
+    amountDue > 0;
 
   return (
     <div className="space-y-6">
@@ -160,8 +218,17 @@ export default function InvoiceDetailPage({
               </Link>
             </Button>
           )}
-          {(invoice.status === "draft" || invoice.status === "pending") && (
-            <Button onClick={handleSend} disabled={sendInvoice.isPending}>
+          {canRecordPayment && (
+            <Button
+              variant="outline"
+              onClick={() => setPaymentDialogOpen(true)}
+            >
+              <DollarSign className="mr-2 h-4 w-4" />
+              Record Payment
+            </Button>
+          )}
+          {canSend && (
+            <Button onClick={() => setEmailPreviewOpen(true)}>
               <Send className="mr-2 h-4 w-4" />
               Send Invoice
             </Button>
@@ -173,19 +240,36 @@ export default function InvoiceDetailPage({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>
-                <Mail className="mr-2 h-4 w-4" />
-                Preview Email
-              </DropdownMenuItem>
-              <DropdownMenuItem>
+              {canSend && (
+                <DropdownMenuItem onClick={() => setEmailPreviewOpen(true)}>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Preview Email
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => window.print()}
+              >
                 <Printer className="mr-2 h-4 w-4" />
                 Print
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Void Invoice
-              </DropdownMenuItem>
+              {canRecordPayment && (
+                <DropdownMenuItem onClick={() => setPaymentDialogOpen(true)}>
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  Record Payment
+                </DropdownMenuItem>
+              )}
+              {canVoid && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => setVoidDialogOpen(true)}
+                  >
+                    <Ban className="mr-2 h-4 w-4" />
+                    Void Invoice
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -424,8 +508,63 @@ export default function InvoiceDetailPage({
               </CardContent>
             </Card>
           )}
+
+          {/* Payment History Card - show if there are payments */}
+          {amountPaid > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Info</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount Paid</span>
+                  <span className="font-medium text-green-600">
+                    {formatCurrency(amountPaid)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Amount Due</span>
+                  <span className={`font-medium ${amountDue > 0 ? "text-destructive" : "text-green-600"}`}>
+                    {formatCurrency(amountDue)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
+
+      {/* Email Preview Dialog */}
+      <EmailPreviewDialog
+        invoiceId={id}
+        customerEmail={invoice.customer?.billing_email || invoice.customer?.email || ""}
+        customerName={invoice.customer?.name || `Customer #${invoice.customer_id}`}
+        invoiceNumber={invoice.invoice_number}
+        totalAmount={invoice.total}
+        open={emailPreviewOpen}
+        onOpenChange={setEmailPreviewOpen}
+        onSend={handleSendEmail}
+      />
+
+      {/* Void Invoice Dialog */}
+      <VoidInvoiceDialog
+        invoiceId={id}
+        invoiceNumber={invoice.invoice_number}
+        open={voidDialogOpen}
+        onOpenChange={setVoidDialogOpen}
+        onVoid={handleVoid}
+      />
+
+      {/* Record Payment Dialog */}
+      <RecordPaymentDialog
+        invoiceId={id}
+        invoiceNumber={invoice.invoice_number}
+        totalAmount={invoice.total}
+        amountDue={amountDue}
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        onRecord={handleRecordPayment}
+      />
     </div>
   );
 }

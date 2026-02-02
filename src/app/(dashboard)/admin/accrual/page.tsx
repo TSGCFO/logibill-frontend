@@ -93,22 +93,22 @@ export default function AdminAccrualPage() {
   });
 
   const { data: customersData } = useCustomers();
-  const customers = customersData?.data?.data ?? [];
+  const customers = customersData?.data ?? [];
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin-accrual-stats"],
     queryFn: async () => {
-      const response = await api.get<{ data: AccrualStats }>(
+      const response = await api.get<AccrualStats>(
         "/api/v1/accrual/stats"
       );
-      return response.data.data;
+      return response.data;
     },
   });
 
   const { data: runsData, isLoading: runsLoading } = useQuery({
     queryKey: ["admin-accrual-runs", pagination, selectedCustomerId],
     queryFn: async () => {
-      const params: Record<string, unknown> = {
+      const params: Record<string, string | number | boolean | undefined | null> = {
         page: pagination.pageIndex + 1,
         per_page: pagination.pageSize,
       };
