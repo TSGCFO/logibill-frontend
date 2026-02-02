@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/playwright-report/
+/blob-report/
+/test-results/
 
 # next.js
 /.next/
@@ -39,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# context (keep for local development)
+# .context/

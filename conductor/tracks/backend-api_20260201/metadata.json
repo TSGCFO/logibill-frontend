@@ -1,0 +1,23 @@
+{
+  "id": "backend-api_20260201",
+  "title": "Backend API Integration",
+  "type": "feature",
+  "status": "in_progress",
+  "created": "2026-02-01",
+  "updated": "2026-02-01",
+  "phases": 6,
+  "totalTasks": 47,
+  "completedTasks": 0,
+  "currentPhase": 1,
+  "currentTask": "1.1",
+  "endpoints": 56,
+  "description": "Connect Next.js frontend to Flask backend with 56 REST API endpoints",
+  "dependencies": [
+    "Flask backend repo (LogiBill)",
+    "Existing SQLAlchemy models",
+    "Supabase Auth",
+    "Frontend API client"
+  ],
+  "tags": ["api", "backend", "integration", "auth", "rest"],
+  "backendRepo": "C:/Users/Hassan/Projects/LogiBill"
+}

@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "project_name": "logibill-frontend",
+  "version": "0.1.0",
+  "context_fingerprint": "sprint13-complete-2026-02-01",
+  "captured_at": "2026-02-01T00:00:00Z",
+  "context_type": "comprehensive",
+
+  "project_metadata": {
+    "framework": "Next.js 16.1.6",
+    "runtime": "React 19.2.3",
+    "language": "TypeScript 5",
+    "styling": "TailwindCSS 4",
+    "ui_library": "shadcn/ui + Radix",
+    "state_management": ["TanStack Query", "Zustand"],
+    "testing": "Playwright",
+    "auth": "Supabase Auth"
+  },
+
+  "metrics": {
+    "pages": 55,
+    "components": 70,
+    "loading_states": 8,
+    "e2e_tests": 4,
+    "accessibility_components": 5,
+    "lazy_loaded_components": 12
+  },
+
+  "architectural_decisions": [
+    {
+      "decision_type": "routing",
+      "rationale": "App Router with route groups for auth and dashboard layouts",
+      "impact_score": 9
+    },
+    {
+      "decision_type": "data_fetching",
+      "rationale": "TanStack Query for server state with optimistic updates",
+      "impact_score": 8
+    },
+    {
+      "decision_type": "forms",
+      "rationale": "React Hook Form + Zod for type-safe validation",
+      "impact_score": 7
+    },
+    {
+      "decision_type": "tables",
+      "rationale": "TanStack Table v8 with sorting, filtering, pagination",
+      "impact_score": 8
+    },
+    {
+      "decision_type": "performance",
+      "rationale": "Dynamic imports for charts, dialogs, heavy tables",
+      "impact_score": 7
+    },
+    {
+      "decision_type": "accessibility",
+      "rationale": "WCAG 2.1 AA with skip links, focus trap, announcer",
+      "impact_score": 8
+    }
+  ],
+
+  "directory_structure": {
+    "src/app/(auth)": "Authentication pages",
+    "src/app/(dashboard)": "Main application pages (55 total)",
+    "src/components/ui": "shadcn/ui components (37)",
+    "src/components/layout": "App layout components",
+    "src/components/tables": "Data table components",
+    "src/components/billing": "Billing domain components",
+    "src/components/invoices": "Invoice domain components",
+    "src/components/materials": "Materials pricing components",
+    "src/components/customers": "Customer domain components",
+    "src/components/shared": "Reusable shared components",
+    "src/components/lazy": "Dynamic import wrappers",
+    "src/components/accessibility": "A11y utilities",
+    "src/lib/api": "API client with JWT auth",
+    "src/lib/supabase": "Supabase client setup",
+    "e2e": "Playwright E2E tests"
+  },
+
+  "api_integration": {
+    "base_url_env": "NEXT_PUBLIC_API_URL",
+    "auth_provider": "Supabase",
+    "endpoints_planned": 56,
+    "endpoint_categories": [
+      "auth", "customers", "orders", "invoices",
+      "billing", "accrual", "materials", "services",
+      "reports", "admin"
+    ]
+  },
+
+  "completion_status": {
+    "sprint_13": "complete",
+    "frontend_ready": true,
+    "backend_integration": "pending",
+    "e2e_tests": "setup_complete"
+  },
+
+  "semantic_tags": [
+    "next.js",
+    "react",
+    "typescript",
+    "billing-platform",
+    "3pl-logistics",
+    "enterprise-ui",
+    "shadcn-ui",
+    "tanstack",
+    "supabase",
+    "playwright"
+  ],
+
+  "plan_reference": "C:\\Users\\Hassan\\.claude\\plans\\indexed-sparking-hanrahan.md",
+
+  "memory_references": [
+    "logibill-frontend-sprint13-complete",
+    "logibill-frontend-architecture"
+  ]
+}
