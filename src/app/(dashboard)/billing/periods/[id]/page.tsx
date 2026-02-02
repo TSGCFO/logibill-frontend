@@ -122,32 +122,40 @@ const chargesColumns: ColumnDef<PeriodCharge>[] = [
   },
 ];
 
-const mockCharges: PeriodCharge[] = [
-  {
-    id: "1",
-    customer_name: "Vasanti Cosmetics",
-    customer_code: "VAS",
-    order_count: 245,
-    total_charges: 8750.0,
-    invoice_status: "invoiced",
-  },
-  {
-    id: "2",
-    customer_name: "Clean Kiss",
-    customer_code: "CK",
-    order_count: 180,
-    total_charges: 6200.0,
-    invoice_status: "pending",
-  },
-  {
-    id: "3",
-    customer_name: "Sample Company",
-    customer_code: "SAMP",
-    order_count: 45,
-    total_charges: 1850.0,
-    invoice_status: "paid",
-  },
-];
+// Transform unbilled charges into display format
+function transformCharges(charges: Array<{
+  id: number | string;
+  customer_id: number | string;
+  customer?: { name: string; code: string };
+  charge_type: string;
+  amount: number;
+  quantity?: number | null;
+  order_id?: number | string | null;
+}> | undefined): PeriodCharge[] {
+  if (!charges || charges.length === 0) return [];
+
+  // Group charges by customer
+  const customerCharges = charges.reduce((acc, charge) => {
+    const customerId = String(charge.customer_id);
+    if (!acc[customerId]) {
+      acc[customerId] = {
+        id: customerId,
+        customer_name: charge.customer?.name || `Customer ${customerId}`,
+        customer_code: charge.customer?.code || customerId,
+        order_count: 0,
+        total_charges: 0,
+        invoice_status: "pending" as const,
+      };
+    }
+    acc[customerId].total_charges += charge.amount;
+    if (charge.order_id) {
+      acc[customerId].order_count += 1;
+    }
+    return acc;
+  }, {} as Record<string, PeriodCharge>);
+
+  return Object.values(customerCharges);
+}
 
 export default function BillingPeriodDetailPage({
   params,
@@ -179,11 +187,14 @@ export default function BillingPeriodDetailPage({
     notFound();
   }
 
-  const totalCharges = mockCharges.reduce(
+  // Transform period charges into display format
+  const periodCharges = transformCharges(period.charges);
+
+  const totalCharges = periodCharges.reduce(
     (sum, c) => sum + c.total_charges,
     0
   );
-  const totalOrders = mockCharges.reduce((sum, c) => sum + c.order_count, 0);
+  const totalOrders = periodCharges.reduce((sum, c) => sum + c.order_count, 0);
 
   return (
     <div className="space-y-6">
@@ -277,7 +288,7 @@ export default function BillingPeriodDetailPage({
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockCharges.length}</div>
+            <div className="text-2xl font-bold">{periodCharges.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -287,8 +298,8 @@ export default function BillingPeriodDetailPage({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {mockCharges.filter((c) => c.invoice_status !== "pending").length}{" "}
-              / {mockCharges.length}
+              {periodCharges.filter((c) => c.invoice_status !== "pending").length}{" "}
+              / {periodCharges.length}
             </div>
           </CardContent>
         </Card>
@@ -312,7 +323,7 @@ export default function BillingPeriodDetailPage({
             <CardContent>
               <DataTable
                 columns={chargesColumns}
-                data={mockCharges}
+                data={periodCharges}
                 searchKey="customer_name"
                 searchPlaceholder="Search customers..."
               />

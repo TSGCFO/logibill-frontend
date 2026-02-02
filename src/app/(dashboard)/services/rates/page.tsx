@@ -6,6 +6,7 @@ import { Plus, MoreHorizontal, Edit, Trash2, Copy, ArrowLeft } from "lucide-reac
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -43,102 +44,34 @@ import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
+import { useServiceRates, useServiceRateTemplates, type ServiceRateWithType, type ServiceRateTemplate } from "@/hooks/use-services";
 
-interface RateTemplate {
-  id: string;
+// Display interface for templates
+interface DisplayTemplate {
+  id: number;
   name: string;
-  description: string;
-  service_count: number;
-  customer_count: number;
+  description: string | null;
+  rates_count: number;
   created_at: string;
-  is_default: boolean;
 }
 
-interface ServiceRate {
-  id: string;
-  service_code: string;
+// Display interface for rates
+interface DisplayRate {
+  id: number;
   service_name: string;
   rate: number;
   unit: string;
-  effective_date: string;
+  effective_date?: string;
 }
 
-const mockTemplates: RateTemplate[] = [
-  {
-    id: "1",
-    name: "Standard Rates",
-    description: "Default rates for new customers",
-    service_count: 12,
-    customer_count: 5,
-    created_at: "2023-06-01T00:00:00Z",
-    is_default: true,
-  },
-  {
-    id: "2",
-    name: "High Volume",
-    description: "Discounted rates for high volume customers",
-    service_count: 12,
-    customer_count: 2,
-    created_at: "2023-09-15T00:00:00Z",
-    is_default: false,
-  },
-  {
-    id: "3",
-    name: "Premium Service",
-    description: "Premium rates with additional services",
-    service_count: 15,
-    customer_count: 1,
-    created_at: "2024-01-01T00:00:00Z",
-    is_default: false,
-  },
-];
-
-const mockRates: ServiceRate[] = [
-  {
-    id: "1",
-    service_code: "PICK",
-    service_name: "Item Picking",
-    rate: 0.35,
-    unit: "per item",
-    effective_date: "2024-01-01",
-  },
-  {
-    id: "2",
-    service_code: "PACK",
-    service_name: "Package Handling",
-    rate: 1.50,
-    unit: "per package",
-    effective_date: "2024-01-01",
-  },
-  {
-    id: "3",
-    service_code: "SHIP",
-    service_name: "Shipping Handling",
-    rate: 0.50,
-    unit: "per shipment",
-    effective_date: "2024-01-01",
-  },
-  {
-    id: "4",
-    service_code: "RECV",
-    service_name: "Receiving",
-    rate: 15.00,
-    unit: "per pallet",
-    effective_date: "2024-01-01",
-  },
-];
-
-const templateColumns: ColumnDef<RateTemplate>[] = [
+const templateColumns: ColumnDef<DisplayTemplate>[] = [
   {
     accessorKey: "name",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Template Name" />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <span className="font-medium">{row.original.name}</span>
-        {row.original.is_default && <Badge>Default</Badge>}
-      </div>
+      <span className="font-medium">{row.original.name}</span>
     ),
   },
   {
@@ -147,19 +80,13 @@ const templateColumns: ColumnDef<RateTemplate>[] = [
       <DataTableColumnHeader column={column} title="Description" />
     ),
     cell: ({ row }) => (
-      <span className="text-muted-foreground">{row.original.description}</span>
+      <span className="text-muted-foreground">{row.original.description || "-"}</span>
     ),
   },
   {
-    accessorKey: "service_count",
+    accessorKey: "rates_count",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Services" />
-    ),
-  },
-  {
-    accessorKey: "customer_count",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Customers" />
+      <DataTableColumnHeader column={column} title="Rates" />
     ),
   },
   {
@@ -171,7 +98,7 @@ const templateColumns: ColumnDef<RateTemplate>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => (
+    cell: () => (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-8 w-8 p-0">
@@ -200,20 +127,14 @@ const templateColumns: ColumnDef<RateTemplate>[] = [
   },
 ];
 
-const rateColumns: ColumnDef<ServiceRate>[] = [
-  {
-    accessorKey: "service_code",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Code" />
-    ),
-    cell: ({ row }) => (
-      <span className="font-mono">{row.original.service_code}</span>
-    ),
-  },
+const rateColumns: ColumnDef<DisplayRate>[] = [
   {
     accessorKey: "service_name",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Service" />
+    ),
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.service_name}</span>
     ),
   },
   {
@@ -239,11 +160,11 @@ const rateColumns: ColumnDef<ServiceRate>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Effective" />
     ),
-    cell: ({ row }) => formatDate(row.original.effective_date),
+    cell: ({ row }) => row.original.effective_date ? formatDate(row.original.effective_date) : "-",
   },
   {
     id: "actions",
-    cell: ({ row }) => (
+    cell: () => (
       <Button variant="ghost" size="sm">
         <Edit className="h-4 w-4" />
       </Button>
@@ -253,6 +174,28 @@ const rateColumns: ColumnDef<ServiceRate>[] = [
 
 export default function ServiceRatesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Fetch templates and rates from API
+  const { data: templates, isLoading: templatesLoading } = useServiceRateTemplates();
+  const { data: rates, isLoading: ratesLoading } = useServiceRates();
+
+  // Transform templates for display
+  const displayTemplates: DisplayTemplate[] = (templates || []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    rates_count: t.rates?.length || 0,
+    created_at: t.created_at,
+  }));
+
+  // Transform rates for display
+  const displayRates: DisplayRate[] = (rates || []).map((r) => ({
+    id: r.id,
+    service_name: r.service_type?.name || `Service ${r.service_type_id}`,
+    rate: r.rate,
+    unit: r.unit,
+    effective_date: r.effective_date,
+  }));
 
   const handleCreateTemplate = () => {
     toast.success("Template created successfully");
@@ -310,8 +253,11 @@ export default function ServiceRatesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Start from scratch</SelectItem>
-                    <SelectItem value="standard">Copy from Standard</SelectItem>
-                    <SelectItem value="high-volume">Copy from High Volume</SelectItem>
+                    {displayTemplates.map((t) => (
+                      <SelectItem key={t.id} value={String(t.id)}>
+                        Copy from {t.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -335,30 +281,56 @@ export default function ServiceRatesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={templateColumns}
-            data={mockTemplates}
-            searchKey="name"
-            searchPlaceholder="Search templates..."
-          />
+          {templatesLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : displayTemplates.length > 0 ? (
+            <DataTable
+              columns={templateColumns}
+              data={displayTemplates}
+              searchKey="name"
+              searchPlaceholder="Search templates..."
+            />
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No rate templates found</p>
+              <p className="text-sm">Create a template to get started</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Default Rates Preview */}
+      {/* Service Rates */}
       <Card>
         <CardHeader>
-          <CardTitle>Default Template Rates</CardTitle>
+          <CardTitle>Service Rates</CardTitle>
           <CardDescription>
-            Service rates in the default template
+            All configured service rates
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={rateColumns}
-            data={mockRates}
-            searchKey="service_name"
-            searchPlaceholder="Search services..."
-          />
+          {ratesLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : displayRates.length > 0 ? (
+            <DataTable
+              columns={rateColumns}
+              data={displayRates}
+              searchKey="service_name"
+              searchPlaceholder="Search services..."
+            />
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No service rates configured</p>
+              <p className="text-sm">Add rates to templates or create individual rates</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

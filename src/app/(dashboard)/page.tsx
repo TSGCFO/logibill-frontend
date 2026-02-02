@@ -17,7 +17,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useDashboardMetrics } from "@/hooks/use-billing";
-import { formatCurrency, formatNumber } from "@/lib/format";
+import { useRevenueReport } from "@/hooks/use-reports";
+import { useActivityFeed } from "@/hooks/use-activity";
+import { RevenueChart } from "@/components/charts";
+import { formatCurrency, formatNumber, formatRelativeTime } from "@/lib/format";
 
 function MetricCard({
   title,
@@ -130,13 +133,7 @@ function QuickActionsCard() {
 }
 
 function RecentActivityCard() {
-  // Placeholder for real-time activity feed
-  const activities = [
-    { id: 1, text: "Vasanti: 15 orders synced", time: "2 minutes ago" },
-    { id: 2, text: "Invoice #1234 sent to Clean Kiss", time: "5 minutes ago" },
-    { id: 3, text: "Accrual completed: 47 orders processed", time: "1 hour ago" },
-    { id: 4, text: "Payment received: $2,450 from Vasanti", time: "3 hours ago" },
-  ];
+  const { data: activities, isLoading } = useActivityFeed({ limit: 5, refetchInterval: 30000 });
 
   return (
     <Card>
@@ -145,17 +142,35 @@ function RecentActivityCard() {
         <CardDescription>Latest updates from the system</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {activities.map((activity) => (
-            <div key={activity.id} className="flex items-start gap-3">
-              <div className="h-2 w-2 rounded-full bg-blue-500 mt-2" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm">{activity.text}</p>
-                <p className="text-xs text-muted-foreground">{activity.time}</p>
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-start gap-3">
+                <Skeleton className="h-2 w-2 rounded-full mt-2" />
+                <div className="flex-1 min-w-0">
+                  <Skeleton className="h-4 w-3/4 mb-1" />
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : activities && activities.length > 0 ? (
+          <div className="space-y-4">
+            {activities.map((activity) => (
+              <div key={activity.id} className="flex items-start gap-3">
+                <div className="h-2 w-2 rounded-full bg-blue-500 mt-2" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm">{activity.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatRelativeTime(activity.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No recent activity</p>
+        )}
       </CardContent>
     </Card>
   );
@@ -163,6 +178,20 @@ function RecentActivityCard() {
 
 export default function DashboardPage() {
   const { data: metrics, isLoading } = useDashboardMetrics();
+
+  // Fetch revenue data for the last 12 months
+  const end = new Date();
+  const start = new Date();
+  start.setMonth(end.getMonth() - 12);
+
+  const { data: revenueData, isLoading: revenueLoading } = useRevenueReport({
+    start_date: start.toISOString().split("T")[0],
+    end_date: end.toISOString().split("T")[0],
+    group_by: "month",
+  });
+
+  // Transform revenue data for chart
+  const chartData = revenueData ? [revenueData] : undefined;
 
   return (
     <div className="space-y-6">
@@ -216,7 +245,7 @@ export default function DashboardPage() {
 
       {/* Charts and Activity */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        {/* Revenue Chart Placeholder */}
+        {/* Revenue Chart */}
         <Card className="col-span-4">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -225,10 +254,13 @@ export default function DashboardPage() {
             </CardTitle>
             <CardDescription>Monthly revenue over the past 12 months</CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center">
-            <p className="text-muted-foreground text-sm">
-              Revenue chart will be displayed here
-            </p>
+          <CardContent>
+            <RevenueChart
+              data={chartData}
+              isLoading={revenueLoading}
+              chartType="area"
+              groupBy="month"
+            />
           </CardContent>
         </Card>
 
