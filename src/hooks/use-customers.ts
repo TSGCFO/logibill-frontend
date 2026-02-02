@@ -64,7 +64,7 @@ export interface CreateCustomerData {
   address?: string | null;
   billing_email?: string | null;
   payment_terms?: number;
-  status?: "active" | "inactive" | "suspended";
+  status?: "active" | "inactive" | "suspended" | "on_hold";
 }
 
 export interface UpdateCustomerData extends Partial<CreateCustomerData> {}

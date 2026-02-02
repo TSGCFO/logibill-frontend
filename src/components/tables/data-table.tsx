@@ -51,6 +51,7 @@ interface DataTableProps<TData, TValue> {
   pageSize?: number;
   onPaginationChange?: (pagination: { pageIndex: number; pageSize: number }) => void;
   manualPagination?: boolean;
+  showSearch?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -64,6 +65,7 @@ export function DataTable<TData, TValue>({
   pageSize: controlledPageSize,
   onPaginationChange,
   manualPagination = false,
+  showSearch = true,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -116,7 +118,7 @@ export function DataTable<TData, TValue>({
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <div className="flex flex-1 items-center space-x-2">
-          {searchKey && (
+          {showSearch && searchKey && (
             <Input
               placeholder={searchPlaceholder}
               value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}

@@ -31,6 +31,7 @@ export interface OrdersParams {
   per_page?: number;
   customer_id?: number | string;
   status?: string;
+  billing_status?: string;
   date_from?: string;
   date_to?: string;
   search?: string;
@@ -58,6 +59,7 @@ export function useOrders(params: OrdersParams = {}) {
         per_page: params.per_page,
         customer_id: params.customer_id,
         status: params.status,
+        billing_status: params.billing_status,
         date_from: params.date_from,
         date_to: params.date_to,
         search: params.search,

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { MoreHorizontal, Eye, Filter } from "lucide-react";
+import { MoreHorizontal, Eye, X } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,30 +21,51 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
 import { useOrders } from "@/hooks/use-orders";
-import { formatDate } from "@/lib/format";
+import { useCustomers } from "@/hooks/use-customers";
+import { formatDate, formatNumber } from "@/lib/format";
 import type { Order } from "@/types";
+
+const getBillingStatusBadge = (
+  status: Order["billing_status"]
+): { variant: "default" | "secondary" | "outline"; label: string } => {
+  switch (status) {
+    case "billed":
+      return { variant: "default", label: "Billed" };
+    case "partial":
+      return { variant: "secondary", label: "Partial" };
+    case "unbilled":
+    default:
+      return { variant: "outline", label: "Unbilled" };
+  }
+};
 
 const columns: ColumnDef<Order>[] = [
   {
-    accessorKey: "wms_order_id",
+    accessorKey: "reference_id",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Order ID" />
+      <DataTableColumnHeader column={column} title="Reference" />
     ),
     cell: ({ row }) => (
       <Link
         href={`/orders/${row.original.id}`}
         className="font-medium hover:underline"
       >
-        {row.original.wms_order_id}
+        {row.original.reference_id || row.original.wms_order_id}
       </Link>
+    ),
+  },
+  {
+    accessorKey: "wms_order_id",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="WMS ID" />
+    ),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground text-sm">
+        {row.original.wms_order_id}
+      </span>
     ),
   },
   {
@@ -59,15 +80,6 @@ const columns: ColumnDef<Order>[] = [
       >
         {row.original.customer?.name || `Customer #${row.original.customer_id}`}
       </Link>
-    ),
-  },
-  {
-    accessorKey: "order_type",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Type" />
-    ),
-    cell: ({ row }) => (
-      <Badge variant="outline">{row.original.order_type}</Badge>
     ),
   },
   {
@@ -93,37 +105,57 @@ const columns: ColumnDef<Order>[] = [
     },
   },
   {
-    accessorKey: "items_count",
+    accessorKey: "order_type",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Items" />
+      <DataTableColumnHeader column={column} title="Type" />
+    ),
+    cell: ({ row }) => (
+      <Badge variant="outline">{row.original.order_type}</Badge>
     ),
   },
   {
-    accessorKey: "packages_count",
+    accessorKey: "total_quantity",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Packages" />
-    ),
-  },
-  {
-    accessorKey: "total_picks",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Picks" />
-    ),
-  },
-  {
-    accessorKey: "ship_date",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Ship Date" />
+      <DataTableColumnHeader column={column} title="Qty" />
     ),
     cell: ({ row }) =>
-      row.original.ship_date ? formatDate(row.original.ship_date) : "-",
+      row.original.total_quantity != null
+        ? formatNumber(row.original.total_quantity)
+        : row.original.items_count,
   },
   {
-    accessorKey: "created_at",
+    accessorKey: "total_weight",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Created" />
+      <DataTableColumnHeader column={column} title="Weight" />
     ),
-    cell: ({ row }) => formatDate(row.original.created_at),
+    cell: ({ row }) =>
+      row.original.total_weight != null
+        ? `${row.original.total_weight.toFixed(2)} lbs`
+        : "-",
+  },
+  {
+    accessorKey: "process_date",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Process Date" />
+    ),
+    cell: ({ row }) =>
+      row.original.process_date
+        ? formatDate(row.original.process_date)
+        : row.original.ship_date
+        ? formatDate(row.original.ship_date)
+        : "-",
+  },
+  {
+    accessorKey: "billing_status",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Billing" />
+    ),
+    cell: ({ row }) => {
+      const { variant, label } = getBillingStatusBadge(
+        row.original.billing_status
+      );
+      return <Badge variant={variant}>{label}</Badge>;
+    },
   },
   {
     id: "actions",
@@ -156,19 +188,45 @@ const columns: ColumnDef<Order>[] = [
 export default function OrdersPage() {
   const [pagination, setPagination] = useState({
     pageIndex: 0,
-    pageSize: 20,
+    pageSize: 50,
   });
   const [filters, setFilters] = useState<{
+    customer_id?: string;
+    order_type?: string;
+    billing_status?: string;
     status?: string;
     date_from?: string;
     date_to?: string;
   }>({});
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useOrders({
     page: pagination.pageIndex + 1,
     per_page: pagination.pageSize,
-    ...filters,
+    search: search || undefined,
+    customer_id: filters.customer_id,
+    order_type: filters.order_type,
+    billing_status: filters.billing_status,
+    status: filters.status,
+    date_from: filters.date_from,
+    date_to: filters.date_to,
   });
+
+  const { data: customersData } = useCustomers({ per_page: 100 });
+
+  const clearFilters = () => {
+    setFilters({});
+    setSearch("");
+  };
+
+  const hasFilters =
+    search ||
+    filters.customer_id ||
+    filters.order_type ||
+    filters.billing_status ||
+    filters.status ||
+    filters.date_from ||
+    filters.date_to;
 
   return (
     <div className="space-y-6">
@@ -178,73 +236,115 @@ export default function OrdersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-muted-foreground">
             View and manage customer orders synced from WMS
+            {data?.meta?.total != null && (
+              <span className="ml-2">
+                ({formatNumber(data.meta.total)} total)
+              </span>
+            )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select
-                    value={filters.status || "all"}
-                    onValueChange={(value) =>
-                      setFilters((f) => ({
-                        ...f,
-                        status: value === "all" ? undefined : value,
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="processing">Processing</SelectItem>
-                      <SelectItem value="shipped">Shipped</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Date From</label>
-                  <Input
-                    type="date"
-                    value={filters.date_from || ""}
-                    onChange={(e) =>
-                      setFilters((f) => ({ ...f, date_from: e.target.value || undefined }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Date To</label>
-                  <Input
-                    type="date"
-                    value={filters.date_to || ""}
-                    onChange={(e) =>
-                      setFilters((f) => ({ ...f, date_to: e.target.value || undefined }))
-                    }
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setFilters({})}
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex-1 min-w-[200px] max-w-sm">
+          <Input
+            placeholder="Press / to search, Enter to submit"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
+        <Select
+          value={filters.customer_id || "all"}
+          onValueChange={(value) =>
+            setFilters((f) => ({
+              ...f,
+              customer_id: value === "all" ? undefined : value,
+            }))
+          }
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Customer" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Customers</SelectItem>
+            {customersData?.data?.map((customer) => (
+              <SelectItem key={customer.id} value={String(customer.id)}>
+                {customer.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={filters.order_type || "all"}
+          onValueChange={(value) =>
+            setFilters((f) => ({
+              ...f,
+              order_type: value === "all" ? undefined : value,
+            }))
+          }
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Order Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="B2B">B2B</SelectItem>
+            <SelectItem value="Consumer">Consumer</SelectItem>
+            <SelectItem value="Retail">Retail</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={filters.billing_status || "all"}
+          onValueChange={(value) =>
+            setFilters((f) => ({
+              ...f,
+              billing_status: value === "all" ? undefined : value,
+            }))
+          }
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Billing Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="billed">Billed</SelectItem>
+            <SelectItem value="unbilled">Unbilled</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2">
+          <Input
+            type="date"
+            placeholder="Start Date"
+            className="w-[140px]"
+            value={filters.date_from || ""}
+            onChange={(e) =>
+              setFilters((f) => ({
+                ...f,
+                date_from: e.target.value || undefined,
+              }))
+            }
+          />
+          <span className="text-muted-foreground">to</span>
+          <Input
+            type="date"
+            placeholder="End Date"
+            className="w-[140px]"
+            value={filters.date_to || ""}
+            onChange={(e) =>
+              setFilters((f) => ({
+                ...f,
+                date_to: e.target.value || undefined,
+              }))
+            }
+          />
+        </div>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            <X className="mr-2 h-4 w-4" />
+            Clear
+          </Button>
+        )}
       </div>
 
       {/* Data Table */}
@@ -259,6 +359,7 @@ export default function OrdersPage() {
         pageSize={pagination.pageSize}
         onPaginationChange={setPagination}
         manualPagination
+        showSearch={false}
       />
     </div>
   );

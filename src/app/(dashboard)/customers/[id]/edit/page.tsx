@@ -46,7 +46,7 @@ const customerFormSchema = z.object({
   address: z.string().optional(),
   billing_email: z.string().email("Invalid email address").optional().or(z.literal("")),
   payment_terms: z.number().min(0).max(120),
-  status: z.enum(["active", "inactive", "suspended"]),
+  status: z.enum(["active", "inactive", "suspended", "on_hold"]),
 });
 
 type CustomerFormValues = z.infer<typeof customerFormSchema>;
@@ -200,6 +200,7 @@ export default function EditCustomerPage({
                           <SelectItem value="active">Active</SelectItem>
                           <SelectItem value="inactive">Inactive</SelectItem>
                           <SelectItem value="suspended">Suspended</SelectItem>
+                          <SelectItem value="on_hold">On Hold</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

@@ -15,12 +15,26 @@ export interface Customer {
   id: number;
   name: string;
   code: string;
-  status: "active" | "inactive" | "suspended";
+  legal_name?: string | null;
+  dba?: string | null;
+  status: "active" | "inactive" | "suspended" | "on_hold";
+  business_type?: string | null;
   email: string | null;
   phone: string | null;
   address: string | null;
+  city?: string | null;
+  province?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
   billing_email: string | null;
   payment_terms: number;
+  credit_limit?: number | null;
+  billing_cadence?: "weekly" | "biweekly" | "monthly" | null;
+  billing_day?: number | null;
+  billing_config_status?: "configured" | "needs_setup" | "incomplete";
+  unbilled_orders_count?: number;
+  unbilled_charges_amount?: number;
+  wms_customer_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -41,17 +55,23 @@ export interface CustomerBillingConfig {
 // Order Types
 export interface Order {
   id: number;
+  reference_id?: string | null;
   wms_order_id: string;
   customer_id: number;
   customer?: Customer;
-  order_type: string;
+  order_type: "B2B" | "Consumer" | "Retail" | string;
   status: string;
+  billing_status: "billed" | "unbilled" | "partial";
   ship_date: string | null;
+  process_date?: string | null;
   created_at: string;
   updated_at: string;
   items_count: number;
   packages_count: number;
   total_picks: number;
+  total_quantity?: number;
+  total_weight?: number | null;
+  shipping_cost?: number | null;
 }
 
 export interface OrderItem {
@@ -244,6 +264,38 @@ export interface DashboardMetrics {
   pending_invoices: number;
   overdue_invoices: number;
   overdue_amount: number;
+  // Additional Flask dashboard metrics
+  unbilled_orders: number;
+  pending_charges: number;
+  uninvoiced_records: number;
+  last_billing_run?: string | null;
+  active_customers: number;
+  customers_needing_setup: number;
+}
+
+export interface UnbilledOrdersByCustomer {
+  customer_id: number;
+  customer_name: string;
+  unbilled_count: number;
+  oldest_order_date: string | null;
+  newest_order_date: string | null;
+}
+
+export interface RecentBillingActivity {
+  id: number;
+  date: string;
+  customer_id: number;
+  customer_name: string;
+  service_type: string;
+  quantity: number;
+  amount: number;
+}
+
+export interface CustomerSetupStatus {
+  customer_id: number;
+  customer_name: string;
+  status: "needs_setup" | "incomplete" | "configured";
+  missing_items: string[];
 }
 
 export interface RevenueReport {
