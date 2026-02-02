@@ -8,6 +8,8 @@ LogiBill is a Next.js 16 frontend application with Supabase authentication and d
   - Updated port bindings to 5000 for Replit compatibility
   - Removed X-Frame-Options: DENY for iframe embedding
   - Configured development workflow
+  - Fixed CORS configuration in backend (TSGCFO/LogiBill) to allow Replit origins
+  - Backend API: https://logi-bill-hsadiq.replit.app
 
 ## Tech Stack
 - **Framework**: Next.js 16.1.6 with Turbopack
