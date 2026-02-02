@@ -68,8 +68,8 @@ import {
   useDeleteBillingRule,
   useToggleBillingRule,
   type BillingRuleWithDetails,
-  type CreateBillingRuleData,
-  type UpdateBillingRuleData,
+  type CreateCustomerBillingRuleData,
+  type UpdateCustomerBillingRuleData,
 } from "@/hooks/use-billing-rules";
 import { toast } from "sonner";
 
@@ -172,7 +172,7 @@ export default function BillingConfigPage({
 
       await createRule.mutateAsync({
         customer_id: Number(customerId),
-        rule_type: formData.rule_type as CreateBillingRuleData["rule_type"],
+        rule_type: formData.rule_type as CreateCustomerBillingRuleData["rule_type"],
         name: formData.name,
         description: formData.description || null,
         conditions: conditionsObj,
@@ -208,7 +208,7 @@ export default function BillingConfigPage({
         customerId,
         ruleId: selectedRule.id,
         data: {
-          rule_type: formData.rule_type as UpdateBillingRuleData["rule_type"],
+          rule_type: formData.rule_type as UpdateCustomerBillingRuleData["rule_type"],
           name: formData.name,
           description: formData.description || null,
           conditions: conditionsObj,

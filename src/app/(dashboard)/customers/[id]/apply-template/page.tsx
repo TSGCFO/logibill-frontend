@@ -83,7 +83,7 @@ export default function ApplyRateTemplatePage({
       const response = await api.get<{ data: RateTemplate[] }>(
         "/api/v1/services/rates/templates"
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
@@ -93,7 +93,7 @@ export default function ApplyRateTemplatePage({
       const response = await api.get<{ data: TemplateRate[] }>(
         `/api/v1/services/rates/templates/${selectedTemplateId}/rates`
       );
-      return response.data.data;
+      return response.data?.data;
     },
     enabled: !!selectedTemplateId,
   });

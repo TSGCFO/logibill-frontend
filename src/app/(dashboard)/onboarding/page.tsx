@@ -90,7 +90,7 @@ export default function CustomerOnboardingPage() {
       const response = await api.get<{ data: OnboardingToken }>(
         `/api/v1/onboarding/verify/${token}`
       );
-      return response.data.data;
+      return response.data?.data;
     },
     enabled: false,
   });
@@ -102,12 +102,13 @@ export default function CustomerOnboardingPage() {
     }
     const result = await verifyToken();
     if (result.data) {
+      const verifiedData = result.data;
       setTokenVerified(true);
       setFormData((prev) => ({
         ...prev,
         token,
-        company_name: result.data.company_name ?? prev.company_name,
-        email: result.data.email ?? prev.email,
+        company_name: verifiedData.company_name ?? prev.company_name,
+        email: verifiedData.email ?? prev.email,
       }));
       toast.success("Token verified successfully");
     }

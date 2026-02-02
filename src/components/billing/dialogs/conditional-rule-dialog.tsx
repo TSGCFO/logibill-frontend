@@ -37,7 +37,7 @@ const conditionSchema = z.object({
   field: z.string().min(1, "Please select a field"),
   operator: z.enum(
     ["equals", "not_equals", "greater_than", "less_than", "greater_or_equal", "less_or_equal", "contains", "starts_with", "ends_with"],
-    { required_error: "Please select an operator" }
+    { message: "Please select an operator" }
   ),
   value: z.string().min(1, "Value is required"),
 });
@@ -48,11 +48,14 @@ const conditionalRuleSchema = z.object({
   conditions: z.array(conditionSchema).min(1, "At least one condition is required"),
   conditionLogic: z.enum(["and", "or"]).default("and"),
   rateType: z.enum(["percentage", "flat", "per_unit"], {
-    required_error: "Please select a rate type",
+    message: "Please select a rate type",
   }),
-  rate: z.coerce.number().min(0, "Rate must be a positive number"),
+  rate: z.preprocess(
+    (val) => (val === '' || val === undefined ? 0 : Number(val)),
+    z.number().min(0, "Rate must be a positive number")
+  ),
   rateAction: z.enum(["add", "subtract", "multiply", "set"], {
-    required_error: "Please select a rate action",
+    message: "Please select a rate action",
   }),
 });
 
@@ -126,7 +129,8 @@ export function ConditionalRuleDialog({
   const isEditing = !!rule?.id;
 
   const form = useForm<ConditionalRuleFormValues>({
-    resolver: zodResolver(conditionalRuleSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(conditionalRuleSchema) as any,
     defaultValues: {
       name: "",
       description: "",

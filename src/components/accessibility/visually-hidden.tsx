@@ -1,8 +1,9 @@
+import React from "react";
 import { cn } from "@/lib/utils";
 
 interface VisuallyHiddenProps {
   children: React.ReactNode;
-  as?: keyof JSX.IntrinsicElements;
+  as?: keyof React.JSX.IntrinsicElements;
   className?: string;
 }
 

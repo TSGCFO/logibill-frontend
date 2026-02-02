@@ -116,7 +116,7 @@ export default function AdminPeriodDetailPage({
       const response = await api.get<{ data: PeriodDetail }>(
         `/api/v1/admin/periods/${id}`
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
@@ -130,7 +130,7 @@ export default function AdminPeriodDetailPage({
         page: customerPagination.pageIndex + 1,
         per_page: customerPagination.pageSize,
       });
-      return response.data;
+      return response.data ?? { data: [], meta: { total: 0, total_pages: 0 } };
     },
   });
 
@@ -144,7 +144,7 @@ export default function AdminPeriodDetailPage({
         page: chargePagination.pageIndex + 1,
         per_page: chargePagination.pageSize,
       });
-      return response.data;
+      return response.data ?? { data: [], meta: { total: 0, total_pages: 0 } };
     },
   });
 

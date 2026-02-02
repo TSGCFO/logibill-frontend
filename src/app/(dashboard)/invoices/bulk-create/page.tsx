@@ -51,7 +51,7 @@ export default function BulkCreateInvoicesPage() {
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
 
   const { data: periodsData } = useBillingPeriods({ per_page: 50 });
-  const periods = periodsData?.data?.data ?? [];
+  const periods = periodsData?.data ?? [];
   const openPeriods = periods.filter((p) => p.status === "open" || p.status === "closed");
 
   const { data: unbilledData, isLoading: unbilledLoading } = useQuery({
@@ -61,17 +61,17 @@ export default function BulkCreateInvoicesPage() {
       const response = await api.get<{ data: UnbilledSummary[] }>(
         `/api/v1/billing/periods/${selectedPeriod}/unbilled`
       );
-      return response.data.data;
+      return response.data?.data;
     },
     enabled: !!selectedPeriod,
   });
 
   const createInvoices = useMutation({
-    mutationFn: async (params: { period_id: string; customer_ids: string[] }) => {
-      const response = await api.post("/api/v1/invoices/bulk-create", params);
-      return response.data;
+    mutationFn: async (params: { period_id: string; customer_ids: string[] }): Promise<{ created_count: number }> => {
+      const response = await api.post<{ created_count: number }>("/api/v1/invoices/bulk-create", params);
+      return response.data ?? { created_count: 0 };
     },
-    onSuccess: (data: { created_count: number }) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["unbilled-summary"] });
       toast.success(`Created ${data.created_count} invoices successfully`);

@@ -94,9 +94,9 @@ export function CustomerOrdersTab({ customerId }: { customerId: string }) {
   return (
     <DataTable
       columns={columns}
-      data={data?.data?.data ?? []}
+      data={data?.data ?? []}
       isLoading={isLoading}
-      pageCount={data?.data?.meta?.total_pages ?? 0}
+      pageCount={data?.meta?.total_pages ?? 0}
       pageIndex={pagination.pageIndex}
       pageSize={pagination.pageSize}
       onPaginationChange={setPagination}

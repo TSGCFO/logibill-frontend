@@ -245,7 +245,7 @@ export default function NewProductPage() {
                         </FormControl>
                         <SelectContent>
                           {customers?.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
+                            <SelectItem key={customer.id} value={String(customer.id)}>
                               {customer.name} ({customer.code})
                             </SelectItem>
                           ))}

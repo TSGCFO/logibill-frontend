@@ -77,7 +77,7 @@ function NewInvoiceForm() {
   const preselectedPeriodId = searchParams.get("period_id") || "";
 
   const { data: periodsData } = useBillingPeriods({ per_page: 50 });
-  const periods = periodsData?.data?.data ?? [];
+  const periods = periodsData?.data ?? [];
 
   const form = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceFormSchema),

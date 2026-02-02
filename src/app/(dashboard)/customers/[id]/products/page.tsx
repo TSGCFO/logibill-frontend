@@ -44,7 +44,7 @@ export default function CustomerProductsPage() {
       const response = await api.get<{ data: Customer }>(
         `/api/v1/customers/${customerId}`
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
@@ -54,7 +54,7 @@ export default function CustomerProductsPage() {
       const response = await api.get<{ data: Product[] }>(
         `/api/v1/customers/${customerId}/products`
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 

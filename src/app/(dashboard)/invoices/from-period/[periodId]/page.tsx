@@ -53,7 +53,7 @@ export default function InvoiceFromPeriodPage() {
       const response = await api.get<{ data: BillingPeriod }>(
         `/api/v1/billing/periods/${periodId}`
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
@@ -63,19 +63,19 @@ export default function InvoiceFromPeriodPage() {
       const response = await api.get<{ data: UnbilledCharge[] }>(
         `/api/v1/billing/periods/${periodId}/unbilled`
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
   const createInvoices = useMutation({
-    mutationFn: async (customerIds: string[]) => {
-      const response = await api.post("/api/v1/invoices/bulk-create", {
+    mutationFn: async (customerIds: string[]): Promise<{ created_count: number }> => {
+      const response = await api.post<{ created_count: number }>("/api/v1/invoices/bulk-create", {
         period_id: periodId,
         customer_ids: customerIds,
       });
-      return response.data;
+      return response.data ?? { created_count: 0 };
     },
-    onSuccess: (data: { created_count: number }) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["unbilled-charges", periodId] });
       toast.success(`Created ${data.created_count} invoices successfully`);

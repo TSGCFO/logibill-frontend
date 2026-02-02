@@ -74,7 +74,7 @@ export default function BillingDashboardPage() {
   const { data: unbilledData, isLoading: unbilledLoading } = useUnbilledCharges();
   const { data: accrualStats, isLoading: accrualLoading } = useAccrualStats();
 
-  const openPeriods = periodsData?.data?.data ?? [];
+  const openPeriods = periodsData?.data ?? [];
   const unbilledCharges = unbilledData ?? [];
   const totalUnbilled = unbilledCharges.reduce((sum, c) => sum + c.amount, 0);
 

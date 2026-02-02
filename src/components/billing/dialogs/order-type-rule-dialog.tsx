@@ -35,15 +35,18 @@ import { Textarea } from "@/components/ui/textarea";
 
 const orderTypeRuleSchema = z.object({
   orderType: z.string().min(1, "Please select an order type"),
-  rate: z.coerce.number().min(0, "Rate must be a positive number"),
-  minimumCharge: z.coerce
-    .number()
-    .min(0, "Minimum charge must be a positive number")
-    .optional(),
+  rate: z.preprocess(
+    (val) => (val === '' || val === undefined ? 0 : Number(val)),
+    z.number().min(0, "Rate must be a positive number")
+  ),
+  minimumCharge: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? undefined : Number(val)),
+    z.number().min(0, "Minimum charge must be a positive number").optional()
+  ),
   name: z.string().min(1, "Rule name is required"),
   description: z.string().optional(),
   rateUnit: z.enum(["per_order", "per_item", "per_package", "percentage"], {
-    required_error: "Please select a rate unit",
+    message: "Please select a rate unit",
   }),
 });
 
@@ -96,7 +99,8 @@ export function OrderTypeRuleDialog({
   const isEditing = !!rule?.id;
 
   const form = useForm<OrderTypeRuleFormValues>({
-    resolver: zodResolver(orderTypeRuleSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(orderTypeRuleSchema) as any,
     defaultValues: {
       orderType: "",
       rate: 0,

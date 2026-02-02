@@ -94,7 +94,7 @@ export default function BillingGeneratePage() {
         "/api/v1/billing/periods",
         { status: "open" }
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
@@ -109,7 +109,7 @@ export default function BillingGeneratePage() {
           include_zero: includeZeroBalance,
         }
       );
-      return response.data.data;
+      return response.data?.data;
     },
     enabled: true,
   });
@@ -125,7 +125,7 @@ export default function BillingGeneratePage() {
           customer_ids: selectedCustomers,
         }
       );
-      return response.data.data;
+      return response.data?.data;
     },
     enabled: selectedCustomers.length > 0,
   });
@@ -140,9 +140,10 @@ export default function BillingGeneratePage() {
           customer_ids: selectedCustomers,
         }
       );
-      return response.data.data;
+      return response.data?.data;
     },
     onSuccess: (data) => {
+      if (!data) return;
       setGenerationResult(data);
       queryClient.invalidateQueries({ queryKey: ["customers-unbilled"] });
       queryClient.invalidateQueries({ queryKey: ["billing-periods"] });

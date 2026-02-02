@@ -76,19 +76,16 @@ export function CustomerProductsTab({ customerId }: { customerId: string }) {
     pageSize: 10,
   });
 
-  const { data, isLoading } = useCustomerProducts(customerId, {
-    page: pagination.pageIndex + 1,
-    per_page: pagination.pageSize,
-  });
+  const { data, isLoading } = useCustomerProducts(customerId, pagination.pageIndex + 1);
 
   return (
     <DataTable
       columns={columns}
-      data={data?.data?.data ?? []}
+      data={data?.data ?? []}
       searchKey="sku"
       searchPlaceholder="Search SKU..."
       isLoading={isLoading}
-      pageCount={data?.data?.meta?.total_pages ?? 0}
+      pageCount={data?.meta?.total_pages ?? 0}
       pageIndex={pagination.pageIndex}
       pageSize={pagination.pageSize}
       onPaginationChange={setPagination}

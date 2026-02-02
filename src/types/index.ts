@@ -88,6 +88,7 @@ export interface Invoice {
   subtotal: number;
   tax: number;
   total: number;
+  amount_paid?: number;
   notes: string | null;
   created_at: string;
   updated_at: string;

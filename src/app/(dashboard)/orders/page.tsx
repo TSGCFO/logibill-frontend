@@ -250,11 +250,11 @@ export default function OrdersPage() {
       {/* Data Table */}
       <DataTable
         columns={columns}
-        data={data?.data?.data ?? []}
+        data={data?.data ?? []}
         searchKey="wms_order_id"
         searchPlaceholder="Search orders..."
         isLoading={isLoading}
-        pageCount={data?.data?.meta?.total_pages ?? 0}
+        pageCount={data?.meta?.total_pages ?? 0}
         pageIndex={pagination.pageIndex}
         pageSize={pagination.pageSize}
         onPaginationChange={setPagination}

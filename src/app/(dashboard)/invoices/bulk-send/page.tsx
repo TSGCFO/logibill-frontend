@@ -52,7 +52,7 @@ export default function BulkSendInvoicesPage() {
         status: "pending",
         per_page: 100,
       });
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
@@ -103,7 +103,7 @@ export default function BulkSendInvoicesPage() {
     if (selectedInvoices.length === pendingInvoices?.length) {
       setSelectedInvoices([]);
     } else {
-      setSelectedInvoices(pendingInvoices?.map((inv) => inv.id) ?? []);
+      setSelectedInvoices(pendingInvoices?.map((inv) => String(inv.id)) ?? []);
     }
   };
 
@@ -117,8 +117,8 @@ export default function BulkSendInvoicesPage() {
 
   const selectedTotal =
     pendingInvoices
-      ?.filter((inv) => selectedInvoices.includes(inv.id))
-      .reduce((sum, inv) => sum + (inv.total_amount ?? 0), 0) ?? 0;
+      ?.filter((inv) => selectedInvoices.includes(String(inv.id)))
+      .reduce((sum, inv) => sum + (inv.total ?? 0), 0) ?? 0;
 
   return (
     <div className="space-y-6">
@@ -183,13 +183,13 @@ export default function BulkSendInvoicesPage() {
                     <TableRow
                       key={invoice.id}
                       className={
-                        selectedInvoices.includes(invoice.id) ? "bg-primary/5" : ""
+                        selectedInvoices.includes(String(invoice.id)) ? "bg-primary/5" : ""
                       }
                     >
                       <TableCell>
                         <Checkbox
-                          checked={selectedInvoices.includes(invoice.id)}
-                          onCheckedChange={() => toggleInvoice(invoice.id)}
+                          checked={selectedInvoices.includes(String(invoice.id))}
+                          onCheckedChange={() => toggleInvoice(String(invoice.id))}
                           disabled={isSending}
                         />
                       </TableCell>
@@ -223,7 +223,7 @@ export default function BulkSendInvoicesPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(invoice.total_amount ?? 0)}
+                        {formatCurrency(invoice.total ?? 0)}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary">Pending</Badge>
@@ -257,7 +257,7 @@ export default function BulkSendInvoicesPage() {
                 {
                   pendingInvoices?.filter(
                     (inv) =>
-                      selectedInvoices.includes(inv.id) && inv.customer?.email
+                      selectedInvoices.includes(String(inv.id)) && inv.customer?.email
                   ).length ?? 0
                 }
               </span>
@@ -294,7 +294,7 @@ export default function BulkSendInvoicesPage() {
             </Button>
 
             {pendingInvoices?.some(
-              (inv) => selectedInvoices.includes(inv.id) && !inv.customer?.email
+              (inv) => selectedInvoices.includes(String(inv.id)) && !inv.customer?.email
             ) && (
               <p className="text-xs text-destructive flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />

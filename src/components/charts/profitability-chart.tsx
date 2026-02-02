@@ -76,6 +76,12 @@ interface CustomTooltipProps {
     name: string;
     color: string;
     dataKey: string;
+    payload: {
+      revenue: number;
+      cost: number;
+      profit: number;
+      margin_pct: number;
+    };
   }>;
   label?: string;
 }

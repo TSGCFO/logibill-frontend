@@ -45,11 +45,11 @@ import type { Invoice } from "@/types";
 
 function InvoiceActions({ invoice }: { invoice: Invoice }) {
   const { url: pdfUrl } = useInvoicePdf(invoice.id);
-  const sendInvoice = useSendInvoice();
+  const sendInvoice = useSendInvoice(invoice.id);
 
   const handleSend = async () => {
     try {
-      await sendInvoice.mutateAsync(invoice.id);
+      await sendInvoice.mutateAsync();
       toast.success("Invoice sent", {
         description: `Invoice ${invoice.invoice_number} has been sent`,
       });
@@ -283,11 +283,11 @@ export default function InvoicesPage() {
       {/* Data Table */}
       <DataTable
         columns={columns}
-        data={data?.data?.data ?? []}
+        data={data?.data ?? []}
         searchKey="invoice_number"
         searchPlaceholder="Search invoices..."
         isLoading={isLoading}
-        pageCount={data?.data?.meta?.total_pages ?? 0}
+        pageCount={data?.meta?.total_pages ?? 0}
         pageIndex={pagination.pageIndex}
         pageSize={pagination.pageSize}
         onPaginationChange={setPagination}

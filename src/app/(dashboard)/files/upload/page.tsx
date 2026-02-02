@@ -33,9 +33,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
 import { useCustomers } from "@/hooks/use-customers";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 interface FileToUpload {
   file: File;
@@ -117,9 +119,20 @@ export default function FileUploadPage() {
             );
           }
 
-          await api.post("/api/v1/files", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
+          // Use fetch directly for FormData uploads
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+
+          const response = await fetch(`${API_BASE}/api/v1/files`, {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
           });
+
+          if (!response.ok) {
+            throw new Error(`Upload failed: ${response.status}`);
+          }
 
           // Update status to complete
           setFiles((prev) =>

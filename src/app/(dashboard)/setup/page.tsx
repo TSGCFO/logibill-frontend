@@ -129,7 +129,7 @@ export default function SetupWizardPage() {
       const response = await api.get<{ data: { company: CompanySettings; billing: BillingSettings } }>(
         "/api/v1/admin/settings"
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 

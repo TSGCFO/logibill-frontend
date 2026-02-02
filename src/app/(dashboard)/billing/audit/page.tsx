@@ -76,7 +76,7 @@ export default function BillingAuditPage() {
         "/api/v1/billing/audit",
         params
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 

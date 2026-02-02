@@ -10,6 +10,13 @@ LogiBill is a Next.js 16 frontend application with Supabase authentication and d
   - Configured development workflow
   - Fixed CORS configuration in backend (TSGCFO/LogiBill) to allow Replit origins
   - Backend API: https://logi-bill-hsadiq.replit.app
+  - Resolved TypeScript strict mode compilation errors:
+    - Fixed Zod v4 compatibility with react-hook-form (preprocess, message instead of required_error)
+    - Resolved export naming conflicts between use-billing.ts and use-billing-rules.ts 
+    - Renamed customer-specific billing rule types to avoid collisions
+    - Fixed JSX namespace for React 19 compatibility
+    - Fixed navigator.sendBeacon type guard for SSR safety
+  - Production build passes successfully
 
 ## Tech Stack
 - **Framework**: Next.js 16.1.6 with Turbopack

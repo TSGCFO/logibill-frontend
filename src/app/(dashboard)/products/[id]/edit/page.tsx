@@ -65,7 +65,7 @@ export default function EditProductPage() {
       const response = await api.get<{ data: Product }>(
         `/api/v1/products/${productId}`
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
@@ -89,7 +89,7 @@ export default function EditProductPage() {
         category: productData.category ?? "",
         weight: productData.weight ?? undefined,
         dimensions: productData.dimensions ?? "",
-        customer_id: productData.customer_id ?? "",
+        customer_id: productData.customer_id ? String(productData.customer_id) : "",
         is_active: productData.is_active ?? true,
       });
     }

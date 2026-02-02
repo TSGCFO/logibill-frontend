@@ -111,7 +111,7 @@ export default function CarrierMarkupPage() {
       const response = await api.get<{ data: CarrierMarkup[] }>(
         "/api/v1/billing/carrier-markups"
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 

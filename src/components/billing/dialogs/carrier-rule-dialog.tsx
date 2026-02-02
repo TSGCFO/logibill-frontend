@@ -36,11 +36,12 @@ import { Textarea } from "@/components/ui/textarea";
 const carrierRuleSchema = z.object({
   carrier: z.string().min(1, "Please select a carrier"),
   rateType: z.enum(["percentage", "flat", "per_package"], {
-    required_error: "Please select a rate type",
+    message: "Please select a rate type",
   }),
-  rateValue: z.coerce
-    .number()
-    .min(0, "Rate value must be a positive number"),
+  rateValue: z.preprocess(
+    (val) => (val === '' || val === undefined ? 0 : Number(val)),
+    z.number().min(0, "Rate value must be a positive number")
+  ),
   conditions: z.string().optional(),
   name: z.string().min(1, "Rule name is required"),
   description: z.string().optional(),
@@ -91,7 +92,8 @@ export function CarrierRuleDialog({
   const isEditing = !!rule?.id;
 
   const form = useForm<CarrierRuleFormValues>({
-    resolver: zodResolver(carrierRuleSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(carrierRuleSchema) as any,
     defaultValues: {
       carrier: "",
       rateType: "percentage",

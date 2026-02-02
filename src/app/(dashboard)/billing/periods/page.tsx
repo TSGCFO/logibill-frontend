@@ -185,7 +185,7 @@ export default function BillingPeriodsPage() {
     pageIndex: 0,
     pageSize: 20,
   });
-  const [statusFilter, setStatusFilter] = useState<string | undefined>();
+  const [statusFilter, setStatusFilter] = useState<"open" | "closed" | "invoiced" | undefined>();
 
   const { data, isLoading } = useBillingPeriods({
     page: pagination.pageIndex + 1,
@@ -207,7 +207,7 @@ export default function BillingPeriodsPage() {
           <Select
             value={statusFilter || "all"}
             onValueChange={(value) =>
-              setStatusFilter(value === "all" ? undefined : value)
+              setStatusFilter(value === "all" ? undefined : value as "open" | "closed" | "invoiced")
             }
           >
             <SelectTrigger className="w-40">
@@ -226,9 +226,9 @@ export default function BillingPeriodsPage() {
       {/* Data Table */}
       <DataTable
         columns={columns}
-        data={data?.data?.data ?? []}
+        data={data?.data ?? []}
         isLoading={isLoading}
-        pageCount={data?.data?.meta?.total_pages ?? 0}
+        pageCount={data?.meta?.total_pages ?? 0}
         pageIndex={pagination.pageIndex}
         pageSize={pagination.pageSize}
         onPaginationChange={setPagination}

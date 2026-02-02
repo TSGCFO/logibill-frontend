@@ -82,12 +82,14 @@ export function RecordPaymentDialog({
   const [isLoading, setIsLoading] = React.useState(false);
 
   const recordPaymentSchema = z.object({
-    amount: z.coerce
-      .number()
-      .min(0.01, "Amount must be greater than 0")
-      .max(amountDue, `Amount cannot exceed the amount due (${formatCurrency(amountDue)})`),
+    amount: z.preprocess(
+      (val) => (val === '' || val === undefined ? 0 : Number(val)),
+      z.number()
+        .min(0.01, "Amount must be greater than 0")
+        .max(amountDue, `Amount cannot exceed the amount due (${formatCurrency(amountDue)})`)
+    ),
     payment_date: z.date({
-      required_error: "Please select a payment date",
+      message: "Please select a payment date",
     }),
     payment_method: z.string().optional(),
     reference: z.string().max(100, "Reference must be less than 100 characters").optional(),
@@ -97,7 +99,8 @@ export function RecordPaymentDialog({
   type RecordPaymentFormValues = z.infer<typeof recordPaymentSchema>;
 
   const form = useForm<RecordPaymentFormValues>({
-    resolver: zodResolver(recordPaymentSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(recordPaymentSchema) as any,
     defaultValues: {
       amount: amountDue,
       payment_date: new Date(),

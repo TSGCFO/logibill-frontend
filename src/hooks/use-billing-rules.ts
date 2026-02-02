@@ -25,7 +25,7 @@ export interface BillingRuleWithDetails extends BillingRule {
   trigger_count?: number;
 }
 
-export interface CreateBillingRuleData {
+export interface CreateCustomerBillingRuleData {
   customer_id: number;
   rule_type: BillingRuleType;
   name: string;
@@ -36,7 +36,7 @@ export interface CreateBillingRuleData {
   is_active?: boolean;
 }
 
-export interface UpdateBillingRuleData {
+export interface UpdateCustomerBillingRuleData {
   rule_type?: BillingRuleType;
   name?: string;
   description?: string | null;
@@ -138,7 +138,7 @@ export function useCreateBillingRule() {
 
   return useMutation({
     mutationFn: async (
-      data: CreateBillingRuleData
+      data: CreateCustomerBillingRuleData
     ): Promise<BillingRuleWithDetails> => {
       const response = await api.post<BillingRuleWithDetails>(
         endpoints.billing.rules(data.customer_id),
@@ -178,7 +178,7 @@ export function useUpdateBillingRule() {
     }: {
       customerId: number | string;
       ruleId: number | string;
-      data: UpdateBillingRuleData;
+      data: UpdateCustomerBillingRuleData;
     }): Promise<BillingRuleWithDetails> => {
       const response = await api.put<BillingRuleWithDetails>(
         `${endpoints.billing.rules(customerId)}/${ruleId}`,
@@ -375,7 +375,7 @@ export function useBillingSandbox() {
 
 export interface BulkUpdateRulesData {
   rule_ids: number[];
-  updates: Partial<UpdateBillingRuleData>;
+  updates: Partial<UpdateCustomerBillingRuleData>;
 }
 
 export interface BulkUpdateRulesResult {

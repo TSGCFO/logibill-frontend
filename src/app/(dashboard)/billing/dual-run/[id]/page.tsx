@@ -85,14 +85,14 @@ export default function DualRunDetailPage({
       const response = await api.get<{ data: DualRunDetail }>(
         `/api/v1/billing/dual-run/runs/${id}`
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
   const { data: comparisons, isLoading: comparisonsLoading } = useQuery({
     queryKey: ["dual-run-comparisons", id, filter, pagination],
     queryFn: async () => {
-      const params: Record<string, unknown> = {
+      const params: Record<string, string | number | boolean | undefined | null> = {
         page: pagination.pageIndex + 1,
         per_page: pagination.pageSize,
       };
@@ -103,7 +103,7 @@ export default function DualRunDetailPage({
         data: ChargeComparison[];
         meta: { total: number; total_pages: number };
       }>(`/api/v1/billing/dual-run/runs/${id}/comparisons`, params);
-      return response.data;
+      return response.data ?? { data: [], meta: { total: 0, total_pages: 0 } };
     },
   });
 

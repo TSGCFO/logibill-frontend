@@ -88,7 +88,7 @@ export default function BillingBulkPage() {
       const response = await api.get<{ data: BillingPeriod[] }>(
         "/api/v1/billing/periods"
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
@@ -99,7 +99,7 @@ export default function BillingBulkPage() {
       const response = await api.get<{ data: CustomerCharges[] }>(
         `/api/v1/billing/periods/${selectedPeriod}/customers`
       );
-      return response.data.data;
+      return response.data?.data;
     },
     enabled: !!selectedPeriod,
   });
@@ -114,9 +114,10 @@ export default function BillingBulkPage() {
           customer_ids: selectedCustomers,
         }
       );
-      return response.data.data;
+      return response.data?.data;
     },
     onSuccess: (data) => {
+      if (!data) return;
       setOperationResult(data);
       queryClient.invalidateQueries({ queryKey: ["customer-charges"] });
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
@@ -141,9 +142,10 @@ export default function BillingBulkPage() {
       const response = await api.post<{ data: BulkOperationResult }>(
         `/api/v1/billing/periods/${selectedPeriod}/close`
       );
-      return response.data.data;
+      return response.data?.data;
     },
     onSuccess: (data) => {
+      if (!data) return;
       setOperationResult(data);
       queryClient.invalidateQueries({ queryKey: ["billing-periods"] });
       toast.success("Period closed successfully");
@@ -156,25 +158,28 @@ export default function BillingBulkPage() {
   // Export charges mutation
   const exportCharges = useMutation({
     mutationFn: async () => {
-      const response = await api.get(
-        `/api/v1/billing/periods/${selectedPeriod}/export`,
-        {
-          customer_ids: selectedCustomers.join(","),
-          format: "csv",
-        },
-        { responseType: "blob" }
+      const params = new URLSearchParams({
+        customer_ids: selectedCustomers.join(","),
+        format: "csv",
+      });
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+      const response = await fetch(
+        `${apiBase}/api/v1/billing/periods/${selectedPeriod}/export?${params}`,
+        { method: "GET" }
       );
-      return response;
+      if (!response.ok) throw new Error("Export failed");
+      return response.blob();
     },
-    onSuccess: (response) => {
+    onSuccess: (blob) => {
       // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", `charges-period-${selectedPeriod}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url);
       toast.success("Export downloaded successfully");
     },
     onError: () => {

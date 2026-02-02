@@ -115,7 +115,7 @@ export default function ServicesConfigPage() {
       const response = await api.get<{ data: ServiceConfig[] }>(
         "/api/v1/services/config"
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 

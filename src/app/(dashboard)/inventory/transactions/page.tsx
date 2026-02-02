@@ -78,7 +78,7 @@ export default function InventoryTransactionsPage() {
         "/api/v1/inventory/transactions",
         params
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 

@@ -177,7 +177,7 @@ class ErrorReporter {
     // or other error tracking service
 
     // Example beacon API for custom endpoint
-    if (navigator.sendBeacon) {
+    if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
       const payload = JSON.stringify({
         message: report.error.message,
         stack: report.error.stack,
@@ -190,6 +190,7 @@ class ErrorReporter {
 
       // Uncomment to send to custom endpoint:
       // navigator.sendBeacon('/api/errors', payload);
+      void payload; // Suppress unused variable warning
     }
   }
 

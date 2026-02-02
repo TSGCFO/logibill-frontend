@@ -63,7 +63,7 @@ export default function CustomerSetupPage({
       const response = await api.get<{ data: SetupStatus }>(
         `/api/v1/customers/${customerId}/setup-status`
       );
-      return response.data.data;
+      return response.data?.data;
     },
   });
 
