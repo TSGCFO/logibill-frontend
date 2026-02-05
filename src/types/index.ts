@@ -341,3 +341,42 @@ export interface SearchResult {
   subtitle: string | null;
   url: string;
 }
+
+// Shipping Types
+export interface ShippingCharge {
+  id: number;
+  order_id: number;
+  customer_id: number;
+  customer_name: string;
+  carrier_code: string;
+  carrier_name: string;
+  tracking_number: string;
+  ship_date: string;
+  charge_amount: number;
+  markup_amount: number;
+  total_amount: number;
+  status: "pending" | "billed" | "disputed";
+  techship_reference: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShippingClientMapping {
+  id: number;
+  customer_id: number;
+  customer_name: string;
+  techship_client_id: string;
+  techship_client_name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShippingDashboardMetrics {
+  total_charges: number;
+  total_markup: number;
+  pending_charges: number;
+  active_mappings: number;
+  charges_by_carrier: Array<{ carrier: string; count: number; amount: number }>;
+  charges_by_status: Array<{ status: string; count: number; amount: number }>;
+}

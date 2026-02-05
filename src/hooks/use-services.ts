@@ -265,6 +265,75 @@ export function useServiceRateTemplates() {
 }
 
 // ============================================================================
+// Service Rate Template Mutation Hooks
+// ============================================================================
+
+export interface CreateServiceRateTemplateData {
+  name: string;
+  description?: string | null;
+  base_template_id?: number | null;
+}
+
+export interface UpdateServiceRateTemplateData {
+  name?: string;
+  description?: string | null;
+}
+
+export function useCreateServiceRateTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateServiceRateTemplateData): Promise<ServiceRateTemplate> => {
+      const response = await api.post<ServiceRateTemplate>(endpoints.services.templates, data);
+      if (!response.data) throw new Error("Failed to create service rate template");
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: servicesKeys.templates() });
+    },
+  });
+}
+
+export function useUpdateServiceRateTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number | string; data: UpdateServiceRateTemplateData }): Promise<ServiceRateTemplate> => {
+      const response = await api.put<ServiceRateTemplate>(`${endpoints.services.templates}/${id}`, data);
+      if (!response.data) throw new Error("Failed to update service rate template");
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: servicesKeys.templates() });
+    },
+  });
+}
+
+export function useDeleteServiceRateTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number | string): Promise<void> => {
+      await api.delete(`${endpoints.services.templates}/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: servicesKeys.templates() });
+    },
+  });
+}
+
+export function useDuplicateServiceRateTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number | string): Promise<ServiceRateTemplate> => {
+      const response = await api.post<ServiceRateTemplate>(`${endpoints.services.templates}/${id}/duplicate`);
+      if (!response.data) throw new Error("Failed to duplicate service rate template");
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: servicesKeys.templates() });
+    },
+  });
+}
+
+// ============================================================================
 // Bulk Operations Mutation Hooks
 // ============================================================================
 

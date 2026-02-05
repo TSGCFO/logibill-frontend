@@ -290,6 +290,14 @@ export const endpoints = {
     bulkSend: "/api/v1/invoices/bulk-send",
   },
 
+  // Products
+  products: {
+    list: "/api/v1/products",
+    detail: (id: number | string) => `/api/v1/products/${id}`,
+    bulkUploadTemplate: "/api/v1/products/bulk-upload-template",
+    bulkUpload: "/api/v1/products/bulk-upload",
+  },
+
   // Billing
   billing: {
     periods: "/api/v1/billing/periods",
@@ -344,10 +352,41 @@ export const endpoints = {
     syncWms: "/api/v1/admin/sync/wms",
     syncTechship: "/api/v1/admin/sync/techship",
     syncStatus: "/api/v1/admin/sync/status",
+    syncHistory: "/api/v1/admin/sync/history",
     users: "/api/v1/admin/users",
     userDetail: (id: string) => `/api/v1/admin/users/${id}`,
     configVersions: (customerId: number | string) =>
       `/api/v1/config/versions/${customerId}`,
+  },
+
+  // WMS Sync (granular endpoints under /api/v1/admin/sync/wms)
+  wmsSync: {
+    all: "/api/v1/admin/sync/wms/all",
+    customers: "/api/v1/admin/sync/wms/customers",
+    orders: (customerId: number | string) =>
+      `/api/v1/admin/sync/wms/orders/${customerId}`,
+    inventory: (customerId: number | string) =>
+      `/api/v1/admin/sync/wms/inventory/${customerId}`,
+    products: (customerId: number | string) =>
+      `/api/v1/admin/sync/wms/products/${customerId}`,
+    productsAll: "/api/v1/admin/sync/wms/products/all",
+  },
+
+  // Files
+  files: {
+    list: "/api/v1/files",
+    detail: (id: number | string) => `/api/v1/files/${id}`,
+    upload: "/api/v1/files/upload",
+    download: (id: number | string) => `/api/v1/files/${id}/download`,
+  },
+
+  // Shipping
+  shipping: {
+    dashboard: "/api/v1/shipping/dashboard",
+    charges: "/api/v1/shipping/charges",
+    chargeDetail: (id: number | string) => `/api/v1/shipping/charges/${id}`,
+    clientMapping: "/api/v1/shipping/client-mapping",
+    clientMappingDetail: (id: number | string) => `/api/v1/shipping/client-mapping/${id}`,
   },
 
   // Misc

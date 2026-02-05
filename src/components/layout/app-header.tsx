@@ -2,7 +2,17 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Search, Bell, Moon, Sun, LogOut, User, Settings } from "lucide-react";
+import {
+  Search,
+  Bell,
+  Moon,
+  Sun,
+  LogOut,
+  User,
+  Settings,
+  BookOpen,
+  Keyboard,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +34,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { createClient } from "@/lib/supabase/client";
@@ -137,6 +152,49 @@ export function AppHeader() {
             <span className="text-xs">⌘</span>K
           </kbd>
         </Button>
+
+        {/* Glossary Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent("open-billing-glossary"))
+              }
+            >
+              <BookOpen className="h-4 w-4" />
+              <span className="sr-only">Billing Glossary</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Billing Glossary</TooltipContent>
+        </Tooltip>
+
+        {/* Keyboard Shortcuts Button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent("open-keyboard-shortcuts")
+                )
+              }
+            >
+              <Keyboard className="h-4 w-4" />
+              <span className="sr-only">Keyboard Shortcuts</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Keyboard Shortcuts
+            <kbd className="ml-1.5 rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
+              ?
+            </kbd>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="h-8 w-8">

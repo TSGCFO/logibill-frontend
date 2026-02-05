@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -15,6 +15,7 @@ import {
   FileText,
   Boxes,
   Settings,
+  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +23,13 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useCustomer, useCustomerBillingConfig } from "@/hooks/use-customers";
+import { useCustomerContext } from "@/hooks/use-customer-context";
 import { formatDate, formatCurrency } from "@/lib/format";
 import { CustomerOrdersTab } from "./orders-tab";
 import { CustomerInvoicesTab } from "./invoices-tab";
@@ -36,6 +43,14 @@ export default function CustomerDetailPage({
   const { id } = use(params);
   const { data: customer, isLoading, error } = useCustomer(id);
   const { data: billingConfig, isLoading: billingLoading } = useCustomerBillingConfig(id);
+  const { customerId: contextCustomerId, setContext, isActive } = useCustomerContext();
+
+  // Auto-set customer context when viewing a customer detail page
+  useEffect(() => {
+    if (customer) {
+      setContext(customer.id, customer.name);
+    }
+  }, [customer, setContext]);
 
   if (error) {
     notFound();
@@ -48,6 +63,8 @@ export default function CustomerDetailPage({
   if (!customer) {
     notFound();
   }
+
+  const isCurrentContext = isActive && contextCustomerId === customer.id;
 
   return (
     <div className="space-y-6">
@@ -73,6 +90,19 @@ export default function CustomerDetailPage({
               >
                 {customer.status}
               </Badge>
+              {isCurrentContext && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300">
+                      <UserCheck className="mr-1 h-3 w-3" />
+                      Working Customer
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    This customer is set as your current working context
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
             <p className="text-muted-foreground">Customer Code: {customer.code}</p>
           </div>

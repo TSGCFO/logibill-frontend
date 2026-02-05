@@ -2,6 +2,9 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts";
+import { BillingGlossary } from "@/components/layout/billing-glossary";
+import { CustomerContextBanner } from "@/components/layout/customer-context-banner";
 
 export default function DashboardLayout({
   children,
@@ -15,6 +18,7 @@ export default function DashboardLayout({
       </nav>
       <SidebarInset>
         <AppHeader />
+        <CustomerContextBanner />
         <main
           id="main-content"
           role="main"
@@ -25,6 +29,8 @@ export default function DashboardLayout({
         </main>
       </SidebarInset>
       <CommandPalette />
+      <KeyboardShortcuts />
+      <BillingGlossary />
     </SidebarProvider>
   );
 }

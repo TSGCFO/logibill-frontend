@@ -16,7 +16,6 @@ import {
   FolderOpen,
   Calculator,
   Wrench,
-  Upload,
 } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
@@ -93,11 +92,27 @@ const billingNavItems = [
   },
 ];
 
+const shippingNavItems = [
+  {
+    title: "Shipping",
+    icon: Truck,
+    items: [
+      { title: "Dashboard", url: "/shipping/dashboard" },
+      { title: "Charges", url: "/shipping/charges" },
+      { title: "Client Mapping", url: "/shipping/client-mapping" },
+    ],
+  },
+];
+
 const operationsNavItems = [
   {
     title: "Products",
-    url: "/products",
     icon: Truck,
+    items: [
+      { title: "All Products", url: "/products" },
+      { title: "New Product", url: "/products/new" },
+      { title: "Bulk Upload", url: "/products/bulk-upload" },
+    ],
   },
   {
     title: "Services",
@@ -123,11 +138,6 @@ const operationsNavItems = [
       { title: "All Files", url: "/files" },
       { title: "Upload", url: "/files/upload" },
     ],
-  },
-  {
-    title: "Bulk Upload",
-    url: "/bulk-upload",
-    icon: Upload,
   },
 ];
 
@@ -250,6 +260,9 @@ export function AppSidebar() {
   // Filter billing items - only show to non-customer users
   const filteredBillingItems = isCustomer ? [] : billingNavItems;
 
+  // Filter shipping items - only show to non-customer users
+  const filteredShippingItems = isCustomer ? [] : shippingNavItems;
+
   // Filter operations items - only show to non-customer users
   const filteredOperationsItems = isCustomer ? [] : operationsNavItems;
 
@@ -308,6 +321,20 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {filteredBillingItems.map((item) => (
+                  <NavItem key={item.title} item={item} pathname={pathname} />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Shipping - hidden for customer users */}
+        {filteredShippingItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Shipping</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredShippingItems.map((item) => (
                   <NavItem key={item.title} item={item} pathname={pathname} />
                 ))}
               </SidebarMenu>

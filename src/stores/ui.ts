@@ -10,15 +10,23 @@ interface CommandPaletteState {
   isOpen: boolean;
 }
 
+interface CustomerContextState {
+  customerId: number | null;
+  customerName: string | null;
+}
+
 interface UIState {
   sidebar: SidebarState;
   commandPalette: CommandPaletteState;
+  customerContext: CustomerContextState;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
   toggleCommandPalette: () => void;
+  setCustomerContext: (id: number, name: string) => void;
+  clearCustomerContext: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -30,6 +38,10 @@ export const useUIStore = create<UIState>()(
       },
       commandPalette: {
         isOpen: false,
+      },
+      customerContext: {
+        customerId: null,
+        customerName: null,
       },
       toggleSidebar: () =>
         set((state) => ({
@@ -54,11 +66,20 @@ export const useUIStore = create<UIState>()(
         set((state) => ({
           commandPalette: { isOpen: !state.commandPalette.isOpen },
         })),
+      setCustomerContext: (id, name) =>
+        set({
+          customerContext: { customerId: id, customerName: name },
+        }),
+      clearCustomerContext: () =>
+        set({
+          customerContext: { customerId: null, customerName: null },
+        }),
     }),
     {
       name: "ui-storage",
       partialize: (state) => ({
         sidebar: { isCollapsed: state.sidebar.isCollapsed },
+        customerContext: state.customerContext,
       }),
     }
   )

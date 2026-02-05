@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal, Eye, Edit, Trash2, UserCheck } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,52 @@ import {
 import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
 import { useCustomers } from "@/hooks/use-customers";
+import { useCustomerContext } from "@/hooks/use-customer-context";
 import type { Customer } from "@/types";
+
+function CustomerActions({ customer }: { customer: Customer }) {
+  const { setContext, customerId: contextCustomerId } = useCustomerContext();
+  const isCurrentContext = contextCustomerId === customer.id;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-8 w-8 p-0">
+          <span className="sr-only">Open menu</span>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuItem asChild>
+          <Link href={}>
+            <Eye className="mr-2 h-4 w-4" />
+            View
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={}>
+            <Edit className="mr-2 h-4 w-4" />
+            Edit
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => setContext(customer.id, customer.name)}
+          disabled={isCurrentContext}
+        >
+          <UserCheck className="mr-2 h-4 w-4" />
+          {isCurrentContext ? "Current Working Customer" : "Set as Working Customer"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="text-destructive">
+          <Trash2 className="mr-2 h-4 w-4" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 const columns: ColumnDef<Customer>[] = [
   {
