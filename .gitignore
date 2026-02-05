@@ -45,4 +45,3 @@ next-env.d.ts
 
 # context (keep for local development)
 # .context/
-.claude/settings.local.json
