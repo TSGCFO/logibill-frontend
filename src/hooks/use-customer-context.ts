@@ -22,7 +22,10 @@ import { useUIStore } from "@/stores/ui";
  * clearContext();
  */
 export function useCustomerContext() {
-  const customerContext = useUIStore((state) => state.customerContext);
+  const customerContext = useUIStore((state) => state.customerContext) ?? {
+    customerId: null,
+    customerName: null,
+  };
   const setCustomerContext = useUIStore((state) => state.setCustomerContext);
   const clearCustomerContext = useUIStore((state) => state.clearCustomerContext);
 
