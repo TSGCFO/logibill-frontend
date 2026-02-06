@@ -163,8 +163,12 @@ export function useNotifications(): UseNotificationsReturn {
         return response.data ?? [];
       } catch {
         // Fallback to the base activity endpoint
-        const response = await api.get<Activity[]>(endpoints.activity, params);
-        return response.data ?? [];
+        // The /activity endpoint returns { items: [], has_more, total }
+        const response = await api.get<{ items: Activity[]; has_more: boolean; total: number }>(
+          endpoints.activity,
+          params
+        );
+        return response.data?.items ?? [];
       }
     },
     staleTime: 15_000,

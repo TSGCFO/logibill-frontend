@@ -48,11 +48,12 @@ export function useActivityFeed(options: ActivityFeedOptions = {}) {
   return useQuery({
     queryKey: activityKeys.feed(since),
     queryFn: async (): Promise<Activity[]> => {
-      const response = await api.get<Activity[]>(endpoints.activity, {
-        since,
-        limit,
-      });
-      return response.data ?? [];
+      // The /activity endpoint returns { items: [], has_more, total }
+      const response = await api.get<{ items: Activity[]; has_more: boolean; total: number }>(
+        endpoints.activity,
+        { since, limit }
+      );
+      return response.data?.items ?? [];
     },
     staleTime: 30000, // 30 seconds
     refetchInterval: refetchInterval, // Optional polling interval
