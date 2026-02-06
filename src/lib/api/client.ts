@@ -185,7 +185,26 @@ export async function apiClient<T>(
         };
       }
 
-      const data: ApiResponse<T> = await response.json();
+      const rawData = await response.json();
+
+      let data: ApiResponse<T>;
+      if (typeof rawData === 'object' && rawData !== null && 'success' in rawData) {
+        data = rawData as ApiResponse<T>;
+      } else if (!response.ok) {
+        data = {
+          success: false,
+          error: {
+            code: rawData?.error || `HTTP_${response.status}`,
+            message: rawData?.message || rawData?.error || `Request failed with status ${response.status}`,
+            details: rawData,
+          },
+        };
+      } else {
+        data = {
+          success: true,
+          data: rawData as T,
+        };
+      }
       return { response, data };
     } catch (error) {
       // Handle network errors
