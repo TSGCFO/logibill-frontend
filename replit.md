@@ -1,64 +1,24 @@
-# LogiBill Frontend
+# Project Overview
 
-## Overview
-LogiBill is a Next.js 16 frontend application with Supabase authentication and data management. Migrated from Vercel to Replit.
+## General Guidelines
 
-## Recent Changes
-- **Feb 2, 2026**: Migrated from Vercel to Replit
-  - Updated port bindings to 5000 for Replit compatibility
-  - Removed X-Frame-Options: DENY for iframe embedding
-  - Configured development workflow
-  - Fixed CORS configuration in backend (TSGCFO/LogiBill) to allow Replit origins
-  - Backend API: https://logi-bill-hsadiq.replit.app
-  - Resolved TypeScript strict mode compilation errors:
-    - Fixed Zod v4 compatibility with react-hook-form (preprocess, message instead of required_error)
-    - Resolved export naming conflicts between use-billing.ts and use-billing-rules.ts 
-    - Renamed customer-specific billing rule types to avoid collisions
-    - Fixed JSX namespace for React 19 compatibility
-    - Fixed navigator.sendBeacon type guard for SSR safety
-  - Production build passes successfully
-  - Users Management Page: Complete rewrite to use real backend API
-    - Full CRUD: Create (with form validation), Edit (role/status/name), Delete (with confirmation)
-    - Four-role system: admin (full access), accountant (billing/invoices/reports), viewer (read-only), customer (own data only)
-    - Super admin user created: h.sadiq@tsgfulfillment.com (id: 7d946aff-168b-4acc-b722-3ce93a0a879f)
-    - Role-based customer dropdown (customer_id required for customer role)
-    - Loading/error states, search functionality, status badges
+- Use TypeScript for all new code
+- Follow consistent naming conventions
+- Write self-documenting code with clear variable and function names
+- Prefer composition over inheritance
+- Use meaningful comments for complex business logic
 
-## User Roles
-- **admin**: Full access to all features
-- **accountant**: Billing, invoices, and reports
-- **viewer**: Read-only access to all data
-- **customer**: Access to own data only (requires customer_id assignment)
+## Code Style
 
-## Tech Stack
-- **Framework**: Next.js 16.1.6 with Turbopack
-- **UI**: React 19, Tailwind CSS 4, Radix UI components
-- **State**: Zustand, React Query
-- **Backend**: Supabase (authentication + database)
-- **Forms**: React Hook Form + Zod validation
-- **Charts**: Recharts
+- Use 2 spaces for indentation
+- Use semicolons
+- Use double quotes for strings
+- Use trailing commas in multi-line objects and arrays
 
-## Project Structure
-```
-src/
-├── app/           # Next.js App Router pages
-├── components/    # React components
-├── hooks/         # Custom React hooks
-├── lib/           # Utilities, Supabase client, API client
-├── stores/        # Zustand stores
-└── types/         # TypeScript types
-```
+## Architecture Principles
 
-## Environment Variables Required
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous/public key
-- `NEXT_PUBLIC_API_URL` - Backend API URL (optional, defaults to localhost:5000)
-
-## Running the Project
-- **Development**: `npm run dev` (runs on port 5000)
-- **Build**: `npm run build`
-- **Production**: `npm run start`
-- **E2E Tests**: `npm run test:e2e`
-
-## Deployment
-Configured for Replit autoscale deployment.
+- Organize code by feature, not by file type
+- Keep related files close together
+- Use dependency injection for better testability
+- Implement proper error handling
+- Follow single responsibility principle

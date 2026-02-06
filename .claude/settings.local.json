@@ -24,6 +24,9 @@
       "mcp__plugin_serena_serena__read_memory",
       "mcp__contextstream__session",
       "mcp__contextstream__memory"
+    ],
+    "deny": [
+      "Read(credentials/)"
     ]
   }
 }
