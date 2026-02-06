@@ -106,5 +106,20 @@ export * from "./use-mobile";
 // Shipping hooks
 export * from "./use-shipping";
 
+// Products hooks
+export * from "./use-products";
+
+// Inventory hooks
+export * from "./use-inventory";
+
+// Files hooks
+export * from "./use-files";
+
+// Audit Trail hooks
+export * from "./use-audit-trail";
+
+// Customer Context hooks
+export * from "./use-customer-context";
+
 // Permission hooks
 export * from "./use-permissions";
