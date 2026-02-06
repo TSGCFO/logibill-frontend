@@ -92,7 +92,7 @@ export function DashboardWidget({
     case "recent_activity":
       return <RecentActivityWidget />;
     case "unbilled_charges":
-      return <UnbilledChargesWidget metrics={metrics} isLoading={isLoading} />;
+      return <UnbilledChargesWidget metrics={metrics} isLoading={isLoading} error={error} />;
     case "sync_status":
       return <SyncStatusWidget />;
     default:
@@ -410,10 +410,29 @@ function RecentActivityWidget() {
 function UnbilledChargesWidget({
   metrics,
   isLoading,
+  error,
 }: {
   metrics?: DashboardMetrics;
   isLoading?: boolean;
+  error?: Error | null;
 }) {
+  if (error) {
+    return (
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-destructive" />
+            Unbilled Charges
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-destructive">Unable to load data</p>
+          <p className="text-xs text-muted-foreground mt-1">Check your connection or try refreshing</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (isLoading) {
     return (
       <Card>

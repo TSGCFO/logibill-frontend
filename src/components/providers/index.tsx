@@ -127,6 +127,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
             useAuthStore.getState().setLoading(false);
             clearErrorUser();
           }
+        } else if (response.status === 401 || response.status === 403) {
+          console.warn("Backend auth check failed: user not provisioned (status", response.status, ")");
+          useAuthStore.getState().setLoading(false);
+          clearErrorUser();
+          toast.info("Account not provisioned", {
+            description: "Your login was successful but your account is not yet set up in the billing system. Please contact an administrator.",
+            duration: 15000,
+          });
         } else {
           console.warn("Backend auth check failed:", response.status);
           useAuthStore.getState().setLoading(false);
