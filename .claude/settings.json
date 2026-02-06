@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$TOOL_INPUT\" | grep -qiE '(\\.env|secrets|ENCRYPTION_KEY|password|api_key)' && echo 'BLOCKED: Attempting to edit sensitive file or content' && exit 1 || exit 0"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
