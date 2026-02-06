@@ -40,6 +40,7 @@ interface DashboardWidgetProps {
   size: WidgetSize;
   metrics?: DashboardMetrics;
   isLoading?: boolean;
+  error?: Error | null;
 }
 
 // ============================================================================
@@ -69,19 +70,20 @@ export function DashboardWidget({
   size,
   metrics,
   isLoading,
+  error,
 }: DashboardWidgetProps) {
   switch (type) {
     case "revenue_mtd":
-      return <RevenueMtdWidget metrics={metrics} isLoading={isLoading} />;
+      return <RevenueMtdWidget metrics={metrics} isLoading={isLoading} error={error} />;
     case "orders_today":
-      return <OrdersTodayWidget metrics={metrics} isLoading={isLoading} />;
+      return <OrdersTodayWidget metrics={metrics} isLoading={isLoading} error={error} />;
     case "pending_invoices":
       return (
-        <PendingInvoicesWidget metrics={metrics} isLoading={isLoading} />
+        <PendingInvoicesWidget metrics={metrics} isLoading={isLoading} error={error} />
       );
     case "overdue_invoices":
       return (
-        <OverdueInvoicesWidget metrics={metrics} isLoading={isLoading} />
+        <OverdueInvoicesWidget metrics={metrics} isLoading={isLoading} error={error} />
       );
     case "revenue_chart":
       return <RevenueChartWidget />;
@@ -111,6 +113,7 @@ function MetricCardWidget({
   trend,
   href,
   isLoading,
+  error,
 }: {
   title: string;
   value: string;
@@ -120,7 +123,23 @@ function MetricCardWidget({
   trend?: "up" | "down" | "neutral";
   href: string;
   isLoading?: boolean;
+  error?: Error | null;
 }) {
+  if (error) {
+    return (
+      <Card className="border-destructive/50">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+          <AlertCircle className="h-4 w-4 text-destructive" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-destructive">Unable to load data</p>
+          <p className="text-xs text-muted-foreground mt-1">Check your connection or try refreshing</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (isLoading) {
     return (
       <Card>
@@ -182,9 +201,11 @@ function MetricCardWidget({
 function RevenueMtdWidget({
   metrics,
   isLoading,
+  error,
 }: {
   metrics?: DashboardMetrics;
   isLoading?: boolean;
+  error?: Error | null;
 }) {
   return (
     <MetricCardWidget
@@ -202,6 +223,7 @@ function RevenueMtdWidget({
       }
       href="/reports"
       isLoading={isLoading}
+      error={error}
     />
   );
 }
@@ -209,9 +231,11 @@ function RevenueMtdWidget({
 function OrdersTodayWidget({
   metrics,
   isLoading,
+  error,
 }: {
   metrics?: DashboardMetrics;
   isLoading?: boolean;
+  error?: Error | null;
 }) {
   return (
     <MetricCardWidget
@@ -224,6 +248,7 @@ function OrdersTodayWidget({
       }
       href="/orders"
       isLoading={isLoading}
+      error={error}
     />
   );
 }
@@ -231,9 +256,11 @@ function OrdersTodayWidget({
 function PendingInvoicesWidget({
   metrics,
   isLoading,
+  error,
 }: {
   metrics?: DashboardMetrics;
   isLoading?: boolean;
+  error?: Error | null;
 }) {
   return (
     <MetricCardWidget
@@ -246,6 +273,7 @@ function PendingInvoicesWidget({
       icon={FileText}
       href="/invoices?status=pending"
       isLoading={isLoading}
+      error={error}
     />
   );
 }
@@ -253,9 +281,11 @@ function PendingInvoicesWidget({
 function OverdueInvoicesWidget({
   metrics,
   isLoading,
+  error,
 }: {
   metrics?: DashboardMetrics;
   isLoading?: boolean;
+  error?: Error | null;
 }) {
   return (
     <MetricCardWidget
@@ -268,6 +298,7 @@ function OverdueInvoicesWidget({
       trend="neutral"
       href="/invoices?status=overdue"
       isLoading={isLoading}
+      error={error}
     />
   );
 }

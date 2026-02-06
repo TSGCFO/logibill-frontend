@@ -23,19 +23,24 @@ function useAuthErrorHandler() {
   return useCallback(
     async (error: unknown) => {
       if (error instanceof ApiError && error.isAuthError()) {
-        // Clear Supabase session
         const supabase = createClient();
-        await supabase.auth.signOut();
+        const { data: { session } } = await supabase.auth.getSession();
 
-        // Clear local auth state
+        if (session) {
+          toast.error("Backend access denied", {
+            description: error.message || "Your account may not be set up in the system. Please contact an administrator.",
+            duration: 10000,
+          });
+          return;
+        }
+
+        await supabase.auth.signOut();
         logout();
 
-        // Show toast notification
         toast.error("Session expired", {
           description: "Please log in again to continue.",
         });
 
-        // Redirect to login with current path as redirect target
         const currentPath = window.location.pathname;
         router.push(`/login?redirectTo=${encodeURIComponent(currentPath)}`);
       }
@@ -110,16 +115,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
         if (response.ok) {
           const data = await response.json();
-          if (data.success && data.data) {
-            useAuthStore.getState().setUser(data.data);
-            // Set user context for error reporting
+          const userData = data.success ? data.data : data;
+          if (userData) {
+            useAuthStore.getState().setUser(userData);
             setErrorUser({
-              id: data.data.id,
-              email: data.data.email,
-              role: data.data.role,
+              id: userData.id,
+              email: userData.email,
+              role: userData.role,
             });
+          } else {
+            useAuthStore.getState().setLoading(false);
+            clearErrorUser();
           }
         } else {
+          console.warn("Backend auth check failed:", response.status);
           useAuthStore.getState().setLoading(false);
           clearErrorUser();
         }

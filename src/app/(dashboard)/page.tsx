@@ -45,7 +45,7 @@ function buildWidgetLayout(
 // ============================================================================
 
 export default function DashboardPage() {
-  const { data: metrics, isLoading } = useDashboardMetrics();
+  const { data: metrics, isLoading, error } = useDashboardMetrics();
   const visibleWidgets = useDashboardStore(useShallow(selectVisibleWidgets));
   const [configOpen, setConfigOpen] = useState(false);
 
@@ -81,6 +81,7 @@ export default function DashboardPage() {
               size={widget.size}
               metrics={metrics}
               isLoading={isLoading}
+              error={error}
             />
           </div>
         ))}
