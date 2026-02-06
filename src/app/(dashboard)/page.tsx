@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Settings2 } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { useDashboardMetrics } from "@/hooks/use-billing";
 import {
   DashboardWidget,
@@ -45,7 +46,7 @@ function buildWidgetLayout(
 
 export default function DashboardPage() {
   const { data: metrics, isLoading } = useDashboardMetrics();
-  const visibleWidgets = useDashboardStore(selectVisibleWidgets);
+  const visibleWidgets = useDashboardStore(useShallow(selectVisibleWidgets));
   const [configOpen, setConfigOpen] = useState(false);
 
   const layout = buildWidgetLayout(visibleWidgets);

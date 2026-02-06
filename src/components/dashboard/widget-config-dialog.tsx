@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { useShallow } from "zustand/react/shallow";
 import {
   useDashboardStore,
   selectAllWidgetsSorted,
@@ -27,7 +28,7 @@ export function WidgetConfigDialog({
   open,
   onOpenChange,
 }: WidgetConfigDialogProps) {
-  const widgets = useDashboardStore(selectAllWidgetsSorted);
+  const widgets = useDashboardStore(useShallow(selectAllWidgetsSorted));
   const toggleWidget = useDashboardStore((s) => s.toggleWidget);
   const moveWidget = useDashboardStore((s) => s.moveWidget);
   const resetToDefault = useDashboardStore((s) => s.resetToDefault);
