@@ -24,7 +24,18 @@
       "mcp__plugin_serena_serena__read_memory",
       "mcp__contextstream__session",
       "mcp__contextstream__memory",
-      "mcp__plugin_serena_serena__edit_memory"
+      "mcp__plugin_serena_serena__edit_memory",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "WebFetch(domain:logi-bill-hsadiq.replit.app)",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "mcp__plugin_playwright_playwright__browser_fill_form",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_network_requests",
+      "mcp__plugin_playwright_playwright__browser_run_code",
+      "mcp__plugin_playwright_playwright__browser_evaluate"
     ],
     "deny": [
       "Read(credentials/)"
