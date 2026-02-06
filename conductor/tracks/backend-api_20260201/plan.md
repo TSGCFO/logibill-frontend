@@ -1,6 +1,7 @@
 # Backend API Integration - Implementation Plan
 
 ## Track Info
+
 - **ID:** backend-api_20260201
 - **Type:** feature
 - **Phases:** 6
@@ -14,6 +15,7 @@
 ### Tasks
 
 - [x] 1.1 Add User model to Flask `models.py`
+
   ```python
   class User(db.Model):
       id = db.Column(UUID, primary_key=True)
@@ -27,6 +29,7 @@
   ```
 
 - [x] 1.2 Add UserActivityLog model
+
   ```python
   class UserActivityLog(db.Model):
       id = db.Column(Integer, primary_key=True)
@@ -44,6 +47,7 @@
   - `@require_customer_access` - Customer isolation
 
 - [x] 1.4 Create API v1 blueprint structure
+
   ```
   api/
   ├── __init__.py
@@ -60,6 +64,7 @@
   - POST `/api/v1/auth/logout` - Invalidate session
 
 - [x] 1.6 Configure CORS for frontend domain
+
   ```python
   CORS(app, resources={
       r"/api/*": {"origins": ["http://localhost:3000", "https://logibill.vercel.app"]}
@@ -73,6 +78,7 @@
   - Test auth flow end-to-end
 
 ### Verification
+
 ```bash
 # Backend
 curl -X GET http://localhost:5000/api/v1/auth/me -H "Authorization: Bearer <token>"
@@ -126,6 +132,7 @@ npm run dev  # Verify login flow
   - Verify orders page loads real data
 
 ### Verification
+
 ```bash
 # Test customer endpoints
 curl http://localhost:5000/api/v1/customers?page=1&per_page=10
@@ -193,6 +200,7 @@ npm run dev  # Check customers and orders pages
   - Verify billing dashboard
 
 ### Verification
+
 ```bash
 # Test invoice endpoints
 curl http://localhost:5000/api/v1/invoices?status=pending
@@ -246,6 +254,7 @@ curl http://localhost:5000/api/v1/billing/unbilled?customer_id=1
   - Verify accrual dashboard
 
 ### Verification
+
 ```bash
 # Test accrual endpoints
 curl -X POST http://localhost:5000/api/v1/accrual/run
@@ -313,6 +322,7 @@ curl http://localhost:5000/api/v1/admin/users
   - Verify billing rules page
 
 ### Verification
+
 ```bash
 # Test materials endpoints
 curl http://localhost:5000/api/v1/materials/global
@@ -375,6 +385,7 @@ curl http://localhost:5000/api/v1/billing/rules/1
   - Run build: `npm run build` ✓
 
 ### Verification
+
 ```bash
 # Test reports endpoints
 curl http://localhost:5000/api/v1/reports/dashboard

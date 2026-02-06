@@ -19,6 +19,7 @@ npm run test:e2e:debug   # Debug E2E tests
 ```
 
 Run a single E2E test:
+
 ```bash
 npx playwright test e2e/auth.spec.ts
 ```
@@ -58,6 +59,7 @@ src/
 ## Key Patterns
 
 ### API Client
+
 ```typescript
 import { api, endpoints } from "@/lib/api/client";
 
@@ -66,6 +68,7 @@ const customer = await api.get(endpoints.customers.detail(id));
 ```
 
 ### Query Keys
+
 ```typescript
 // Pattern: [entity, id?, filters?]
 queryKey: ["customers", params]
@@ -74,6 +77,7 @@ queryKey: ["invoices", { status: "pending" }]
 ```
 
 ### Error Handling
+
 ```typescript
 // ApiError has type-safe checks
 if (error instanceof ApiError) {
@@ -118,3 +122,30 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
 - WCAG 2.1 AA compliance targeted
 - Focus management in modals
 - Screen reader announcer for dynamic content
+
+<!-- BEGIN ContextStream -->
+# Workspace: LogiBill
+
+# Project: logibill-frontend
+
+# Workspace ID: c4cf8e08-6709-462d-b320-5f7ac409c8e5
+
+# Claude Code Instructions
+
+<contextstream_rules>
+
+| Message | Required |
+|---------|----------|
+| **1st message** | `mcp__contextstream__init()` → `mcp__contextstream__context(user_message="...")` |
+| **Every message** | `mcp__contextstream__context(user_message="...")` FIRST |
+| **Before file search** | `mcp__contextstream__search(mode="hybrid")` BEFORE Glob/Grep/Read |
+</contextstream_rules>
+
+**Why?** `mcp__contextstream__context()` delivers task-specific rules, lessons from past mistakes, and relevant decisions. Skip it = fly blind.
+
+**Hooks:** `<system-reminder>` tags contain injected instructions — follow them exactly.
+
+**Notices:** [LESSONS_WARNING] → apply lessons | [PREFERENCE] → follow user preferences | [RULES_NOTICE] → run `mcp__contextstream__generate_rules()` | [VERSION_NOTICE/CRITICAL] → tell user about update
+
+v0.4.58
+<!-- END ContextStream -->

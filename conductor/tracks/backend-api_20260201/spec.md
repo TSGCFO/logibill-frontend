@@ -1,6 +1,7 @@
 # Backend API Integration Specification
 
 ## Track Info
+
 - **ID:** backend-api_20260201
 - **Type:** feature
 - **Created:** 2026-02-01
@@ -30,6 +31,7 @@ The frontend is complete with UI components, pages, and data hooks, but all data
 ## Technical Requirements
 
 ### API Structure
+
 ```
 api/v1/
 ├── auth.py          # 3 endpoints
@@ -45,6 +47,7 @@ api/v1/
 ```
 
 ### Response Format
+
 ```json
 {
   "success": true,
@@ -59,6 +62,7 @@ api/v1/
 ```
 
 ### Error Format
+
 ```json
 {
   "success": false,
@@ -73,6 +77,7 @@ api/v1/
 ## Acceptance Criteria
 
 ### Phase 1: Auth Foundation
+
 - [ ] User and UserActivityLog models added to Flask
 - [ ] Supabase Auth JWT validation decorator
 - [ ] Role-based access control (@require_role)
@@ -83,6 +88,7 @@ api/v1/
 - [ ] OpenAPI documentation configured
 
 ### Phase 2: Customer & Order APIs
+
 - [ ] GET `/api/v1/customers` - List with pagination, filtering, search
 - [ ] GET `/api/v1/customers/{id}` - Customer detail
 - [ ] POST `/api/v1/customers` - Create customer
@@ -96,6 +102,7 @@ api/v1/
 - [ ] Frontend hooks connected: useCustomers, useCustomer, useOrders
 
 ### Phase 3: Invoice & Billing APIs
+
 - [ ] GET `/api/v1/invoices` - List with filters
 - [ ] GET `/api/v1/invoices/{id}` - Invoice detail
 - [ ] POST `/api/v1/invoices` - Create invoice
@@ -111,6 +118,7 @@ api/v1/
 - [ ] Frontend hooks connected: useInvoices, useInvoice, useBillingPeriods
 
 ### Phase 4: Accrual & Admin APIs
+
 - [ ] POST `/api/v1/accrual/run` - Trigger accrual
 - [ ] POST `/api/v1/accrual/customer/{id}/run` - Customer accrual
 - [ ] GET `/api/v1/accrual/stats` - Statistics
@@ -122,6 +130,7 @@ api/v1/
 - [ ] Frontend hooks connected: useAccrual, useSyncStatus
 
 ### Phase 5: Materials & Services APIs
+
 - [ ] CRUD `/api/v1/materials/global` - Global pricing
 - [ ] CRUD `/api/v1/materials/overrides` - Customer overrides
 - [ ] GET `/api/v1/materials/packaging-rates` - Packaging catalog
@@ -133,6 +142,7 @@ api/v1/
 - [ ] Frontend hooks connected: useMaterials, useServices, useBillingRules
 
 ### Phase 6: Reports & Dashboard APIs
+
 - [ ] GET `/api/v1/reports/dashboard` - Dashboard metrics
 - [ ] GET `/api/v1/reports/revenue` - Revenue by period
 - [ ] GET `/api/v1/reports/aging` - Invoice aging

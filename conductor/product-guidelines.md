@@ -3,6 +3,7 @@
 ## Voice and Tone
 
 ### Primary Voice
+
 **Professional and Technical** - Clear, precise communication appropriate for business users managing financial and operational data.
 
 ### Tone Guidelines
@@ -24,16 +25,19 @@
 ## Design Principles
 
 ### 1. Simplicity Over Features
+
 - Show only what's needed for the current task
 - Progressive disclosure for advanced options
 - Reduce cognitive load with clear hierarchy
 
 ### 2. Performance First
+
 - Lazy load heavy components (charts, dialogs)
 - Optimize bundle size with tree-shaking
 - Use skeletons for perceived performance
 
 ### 3. Accessibility (WCAG 2.1 AA)
+
 - Skip links for keyboard navigation
 - Proper heading hierarchy
 - Sufficient color contrast (4.5:1 minimum)
@@ -41,6 +45,7 @@
 - Screen reader announcements for dynamic content
 
 ### 4. Consistency
+
 - Use shadcn/ui component library throughout
 - Follow established patterns for similar features
 - Consistent spacing, typography, and colors
@@ -48,21 +53,25 @@
 ## UI Patterns
 
 ### Navigation
+
 - Sidebar navigation for primary sections
 - Breadcrumbs for hierarchical pages
 - Command palette (Cmd+K) for quick actions
 
 ### Data Display
+
 - DataTable for lists with sorting, filtering, pagination
 - Cards for summary/overview information
 - Badges for status indicators
 
 ### Forms
+
 - React Hook Form + Zod validation
 - Inline validation with error messages
 - Disabled state during submission
 
 ### Feedback
+
 - Toast notifications for actions (sonner)
 - Alert dialogs for destructive actions
 - Loading skeletons for async content

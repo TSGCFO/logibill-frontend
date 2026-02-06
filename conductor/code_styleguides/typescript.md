@@ -3,7 +3,8 @@
 ## File Organization
 
 ### Directory Structure
-```
+
+```text
 src/
 ├── app/                 # Next.js App Router pages
 ├── components/
@@ -24,6 +25,7 @@ src/
 ```
 
 ### File Naming
+
 - Components: `kebab-case.tsx` (e.g., `data-table.tsx`)
 - Hooks: `use-{name}.ts` (e.g., `use-customers.ts`)
 - Types: `{domain}.ts` (e.g., `customer.ts`)

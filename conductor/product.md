@@ -34,23 +34,27 @@ Enterprise billing platform frontend for 3PL (Third-Party Logistics) fulfillment
 ## Core Features
 
 ### Customer Management
+
 - Customer listing with search, filter, pagination
 - Customer detail view with activity feed
 - Billing configuration per customer
 - Packaging rate overrides
 
 ### Order Management
+
 - Order viewing and search
 - Order detail with line items
 - Sync status monitoring
 
 ### Invoice Management
+
 - Invoice listing and search
 - Invoice creation (manual and from periods)
 - Bulk invoice operations
 - PDF generation and email preview
 
 ### Billing Operations
+
 - Billing periods management
 - Accrual accounting
 - Rule configuration (carrier, order type, conditional)
@@ -58,6 +62,7 @@ Enterprise billing platform frontend for 3PL (Third-Party Logistics) fulfillment
 - Dual-run comparison
 
 ### Administration
+
 - User management
 - System settings
 - Sync status monitoring

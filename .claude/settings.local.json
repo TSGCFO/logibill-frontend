@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "WebFetch(domain:raw.githubusercontent.com)",
@@ -15,11 +18,12 @@
       "mcp__plugin_serena_serena__initial_instructions",
       "mcp__plugin_serena_serena__think_about_collected_information",
       "mcp__plugin_serena_serena__think_about_task_adherence",
-      "mcp__plugin_serena_serena__search_for_pattern"
+      "mcp__plugin_serena_serena__search_for_pattern",
+      "mcp__contextstream__init",
+      "mcp__contextstream__context",
+      "mcp__plugin_serena_serena__read_memory",
+      "mcp__contextstream__session",
+      "mcp__contextstream__memory"
     ]
-  },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   }
-
 }
