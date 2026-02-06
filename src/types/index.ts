@@ -152,6 +152,23 @@ export interface BillingRule {
   updated_at: string;
 }
 
+// Billing Audit Types
+export interface BillingAuditCharge {
+  id: number;
+  customer_id: number;
+  customer_name: string | null;
+  service_type_id: number;
+  service_type_name: string | null;
+  description: string | null;
+  quantity: string;
+  rate: string;
+  amount: string;
+  order_id: number | null;
+  status: string;
+  service_date: string | null;
+  created_at: string | null;
+}
+
 // Materials Types
 export interface MaterialsPricingGlobal {
   id: number;
@@ -236,76 +253,127 @@ export interface AccrualStats {
 }
 
 // Report Types
+
+/** Dashboard metrics from GET /api/v1/reports/dashboard */
 export interface DashboardMetrics {
-  revenue_mtd: number;
-  revenue_change_pct: number;
+  revenue_mtd: string;
+  revenue_ytd: string;
+  revenue_change_pct: string | null;
   orders_today: number;
-  orders_avg_diff: number;
-  pending_invoices: number;
-  overdue_invoices: number;
-  overdue_amount: number;
+  orders_mtd: number;
+  orders_change_pct: string | null;
+  pending_invoices_count: number;
+  pending_invoices_amount: string;
+  overdue_invoices_count: number;
+  overdue_invoices_amount: string;
+  active_customers_count: number;
+  recent_activity: {
+    id: number;
+    type: string;
+    description: string;
+    amount: string | null;
+    customer_id: number | null;
+    customer_name: string | null;
+    timestamp: string;
+    user: string | null;
+  }[];
+  period: {
+    start_date: string;
+    end_date: string;
+  };
 }
 
+/** Revenue data point from the backend */
+export interface RevenueDataPoint {
+  date: string;
+  period_label: string | null;
+  amount: string;
+  count: number;
+}
+
+/** Revenue report from GET /api/v1/reports/revenue */
 export interface RevenueReport {
   period: string;
-  total: number;
+  date_from: string;
+  date_to: string;
+  data_points: RevenueDataPoint[];
+  totals: {
+    total_amount: string;
+    total_count: number;
+    average: string;
+  };
   by_customer: {
     customer_id: number;
     customer_name: string;
-    amount: number;
-  }[];
-  by_charge_type: {
-    charge_type: string;
-    amount: number;
-  }[];
-}
-
-export interface AgingReport {
-  current: number;
-  days_1_30: number;
-  days_31_60: number;
-  days_61_90: number;
-  over_90: number;
-  total: number;
-  by_customer: {
-    customer_id: number;
-    customer_name: string;
-    current: number;
-    days_1_30: number;
-    days_31_60: number;
-    days_61_90: number;
-    over_90: number;
-    total: number;
-  }[];
-}
-
-export interface ProfitabilityReport {
-  period: string;
-  total_revenue: number;
-  total_cost: number;
-  gross_profit: number;
-  gross_margin_pct: number;
-  by_customer: {
-    customer_id: number;
-    customer_name: string;
-    revenue: number;
-    cost: number;
-    profit: number;
-    margin_pct: number;
-  }[];
-  by_service: {
+    external_id: string | null;
+    amount: string;
+    count: number;
+    percentage: string;
+  }[] | null;
+  by_service_type: {
     service_type: string;
-    revenue: number;
-    cost: number;
-    profit: number;
-    margin_pct: number;
+    service_type_name: string | null;
+    amount: string;
+    count: number;
+    percentage: string;
+  }[] | null;
+}
+
+/** Aging bucket from the backend */
+export interface AgingBucket {
+  count: number;
+  amount: string;
+}
+
+/** Aging report from GET /api/v1/reports/aging */
+export interface AgingReport {
+  as_of_date: string;
+  current: AgingBucket;
+  period_31_60: AgingBucket;
+  period_61_90: AgingBucket;
+  period_over_90: AgingBucket;
+  total: AgingBucket;
+  by_customer: {
+    customer_id: number;
+    customer_name: string;
+    external_id: string | null;
+    current: AgingBucket;
+    period_31_60: AgingBucket;
+    period_61_90: AgingBucket;
+    period_over_90: AgingBucket;
+    total: AgingBucket;
   }[];
 }
 
+/** Profitability report from GET /api/v1/reports/profitability */
+export interface ProfitabilityReport {
+  date_from: string;
+  date_to: string;
+  total_revenue: string;
+  total_costs: string;
+  total_margin: string;
+  overall_margin_pct: string;
+  customers: {
+    customer_id: number;
+    customer_name: string;
+    external_id: string | null;
+    revenue: string;
+    costs: string;
+    margin: string;
+    margin_pct: string;
+    order_count: number;
+    avg_order_value: string;
+  }[];
+}
+
+/** Export report response */
 export interface ExportReportResponse {
-  download_url: string;
+  file_url: string;
   filename: string;
-  expires_at: string;
+  format: string;
+  report_type: string;
+  generated_at: string;
+  expires_at: string | null;
 }
 
 // Activity Types
@@ -379,4 +447,40 @@ export interface ShippingDashboardMetrics {
   active_mappings: number;
   charges_by_carrier: Array<{ carrier: string; count: number; amount: number }>;
   charges_by_status: Array<{ status: string; count: number; amount: number }>;
+}
+
+// Inventory Types
+export interface InventoryItem {
+  product_id: number | null;
+  sku: string;
+  description: string | null;
+  customer_id: number;
+  customer_name: string | null;
+  location: string | null;
+  quantity_on_hand: number;
+  quantity_available: number;
+  quantity_allocated: number;
+  last_updated: string | null;
+}
+
+export interface InventorySummary {
+  total_skus: number;
+  total_quantity: number;
+  total_locations: number;
+  low_stock_count: number;
+}
+
+export interface InventoryTransaction {
+  id: number;
+  product_sku: string;
+  product_name: string | null;
+  customer_id: number;
+  customer_name: string | null;
+  transaction_type: "receipt" | "shipment" | "adjustment" | "transfer";
+  quantity_change: number;
+  reference_number: string | null;
+  location_from: string | null;
+  location_to: string | null;
+  notes: string | null;
+  created_at: string | null;
 }

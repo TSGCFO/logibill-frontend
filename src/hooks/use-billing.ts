@@ -8,6 +8,7 @@ import type {
   AccrualStats,
   DashboardMetrics,
   PaginatedResponse,
+  BillingAuditCharge,
 } from "@/types";
 
 // ============================================================================
@@ -26,6 +27,8 @@ export const billingKeys = {
   rules: (customerId: number | string) =>
     [...billingKeys.all, "rules", customerId] as const,
   sandbox: () => [...billingKeys.all, "sandbox"] as const,
+  audit: (params?: BillingAuditParams) =>
+    [...billingKeys.all, "audit", params] as const,
 };
 
 export const accrualKeys = {
@@ -118,6 +121,17 @@ export interface AccrualStatsParams {
 
 export interface AccrualRunsParams {
   limit?: number;
+}
+
+export interface BillingAuditParams {
+  page?: number;
+  per_page?: number;
+  customer_id?: number | string;
+  service_type?: string;
+  date_from?: string;
+  date_to?: string;
+  sort_by?: string;
+  sort_order?: "asc" | "desc";
 }
 
 export interface ClosePeriodResult {
@@ -562,6 +576,111 @@ export function useDashboardMetrics() {
     },
     staleTime: 60000, // 1 minute
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+  });
+}
+
+// ============================================================================
+// Billing Audit Query Hooks
+// ============================================================================
+
+/**
+ * Fetch paginated list of uninvoiced charges for audit review
+ */
+export function useBillingAudit(params: BillingAuditParams = {}) {
+  return useQuery({
+    queryKey: billingKeys.audit(params),
+    queryFn: async (): Promise<PaginatedResponse<BillingAuditCharge>> => {
+      const response = await api.get<BillingAuditCharge[]>(
+        endpoints.billing.audit,
+        {
+          page: params.page,
+          per_page: params.per_page,
+          customer_id: params.customer_id,
+          service_type: params.service_type,
+          date_from: params.date_from,
+          date_to: params.date_to,
+          sort_by: params.sort_by,
+          sort_order: params.sort_order,
+        }
+      );
+
+      return {
+        data: response.data ?? [],
+        meta: response.meta ?? {
+          page: params.page ?? 1,
+          per_page: params.per_page ?? 20,
+          total: 0,
+          total_pages: 0,
+        },
+      };
+    },
+    staleTime: 30000, // 30 seconds
+  });
+}
+
+// ============================================================================
+// Billing Audit Mutation Hooks
+// ============================================================================
+
+/**
+ * Approve a billing audit charge for invoicing
+ */
+export function useApproveBillingCharge() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (
+      recordId: number | string
+    ): Promise<{ id: number; status: string; message: string }> => {
+      const response = await api.put<{
+        id: number;
+        status: string;
+        message: string;
+      }>(endpoints.billing.auditApprove(recordId));
+      if (!response.data) {
+        throw new Error("Failed to approve charge");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate billing audit list so it refreshes
+      queryClient.invalidateQueries({
+        queryKey: [...billingKeys.all, "audit"],
+      });
+      // Invalidate unbilled charges as status has changed
+      queryClient.invalidateQueries({ queryKey: billingKeys.unbilled() });
+    },
+  });
+}
+
+/**
+ * Void/delete a billing audit charge (admin only)
+ */
+export function useDeleteBillingCharge() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (
+      recordId: number | string
+    ): Promise<{ id: number; status: string; message: string }> => {
+      const response = await api.delete<{
+        id: number;
+        status: string;
+        message: string;
+      }>(endpoints.billing.auditDelete(recordId));
+      if (!response.data) {
+        throw new Error("Failed to void charge");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate billing audit list so it refreshes
+      queryClient.invalidateQueries({
+        queryKey: [...billingKeys.all, "audit"],
+      });
+      // Invalidate unbilled charges as the voided charge is removed
+      queryClient.invalidateQueries({ queryKey: billingKeys.unbilled() });
+    },
   });
 }
 

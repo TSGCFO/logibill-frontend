@@ -309,6 +309,10 @@ export const endpoints = {
     rules: (customerId: number | string) =>
       `/api/v1/billing/rules/${customerId}`,
     sandbox: "/api/v1/billing/sandbox",
+    audit: "/api/v1/billing/audit",
+    auditApprove: (id: number | string) =>
+      `/api/v1/billing/audit/${id}/approve`,
+    auditDelete: (id: number | string) => `/api/v1/billing/audit/${id}`,
   },
 
   // Accrual
@@ -387,6 +391,13 @@ export const endpoints = {
     chargeDetail: (id: number | string) => `/api/v1/shipping/charges/${id}`,
     clientMapping: "/api/v1/shipping/client-mapping",
     clientMappingDetail: (id: number | string) => `/api/v1/shipping/client-mapping/${id}`,
+  },
+
+  // Inventory
+  inventory: {
+    list: "/api/v1/inventory",
+    summary: "/api/v1/inventory/summary",
+    transactions: "/api/v1/inventory/transactions",
   },
 
   // Misc

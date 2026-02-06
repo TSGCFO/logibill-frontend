@@ -10,7 +10,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatPercent } from "@/lib/format";
@@ -30,45 +29,46 @@ interface AgingChartProps {
 // Colors progress from green (current) to red (overdue)
 const AGING_BUCKETS = [
   {
-    key: "current",
+    key: "current" as const,
     label: "Current",
     color: "hsl(142, 76%, 36%)", // Green
   },
   {
-    key: "days_1_30",
-    label: "1-30 Days",
+    key: "period_31_60" as const,
+    label: "31-60 Days",
     color: "hsl(var(--chart-2))", // Teal
   },
   {
-    key: "days_31_60",
-    label: "31-60 Days",
+    key: "period_61_90" as const,
+    label: "61-90 Days",
     color: "hsl(var(--chart-4))", // Yellow
   },
   {
-    key: "days_61_90",
-    label: "61-90 Days",
-    color: "hsl(var(--chart-5))", // Orange
-  },
-  {
-    key: "over_90",
+    key: "period_over_90" as const,
     label: "90+ Days",
     color: "hsl(0, 84%, 60%)", // Red
   },
-] as const;
+];
 
-type AgingBucketKey = (typeof AGING_BUCKETS)[number]["key"];
-
-// Transform aging data for charts
+/**
+ * Transform aging data for charts.
+ * Backend returns nested bucket objects with string amounts.
+ */
 function transformAgingData(data: AgingReport) {
-  return AGING_BUCKETS.map((bucket) => ({
-    name: bucket.label,
-    key: bucket.key,
-    value: data[bucket.key as keyof AgingReport] as number,
-    color: bucket.color,
-    percentage: data.total > 0
-      ? ((data[bucket.key as keyof AgingReport] as number) / data.total) * 100
-      : 0,
-  }));
+  const totalAmount = parseFloat(data.total.amount);
+
+  return AGING_BUCKETS.map((bucket) => {
+    const bucketData = data[bucket.key];
+    const amount = parseFloat(bucketData.amount);
+    return {
+      name: bucket.label,
+      key: bucket.key,
+      value: amount,
+      count: bucketData.count,
+      color: bucket.color,
+      percentage: totalAmount > 0 ? (amount / totalAmount) * 100 : 0,
+    };
+  });
 }
 
 // Custom tooltip for pie chart
@@ -80,6 +80,7 @@ interface PieTooltipProps {
     payload: {
       name: string;
       value: number;
+      count: number;
       color: string;
       percentage: number;
     };
@@ -102,8 +103,9 @@ function PieTooltip({ active, payload }: PieTooltipProps) {
         />
         <span className="font-medium text-foreground">{data.name}</span>
       </div>
-      <div className="text-sm text-muted-foreground">
+      <div className="text-sm text-muted-foreground space-y-0.5">
         <p>Amount: {formatCurrency(data.value)}</p>
+        <p>Invoices: {data.count}</p>
         <p>Percentage: {formatPercent(data.percentage)}</p>
       </div>
     </div>
@@ -118,6 +120,7 @@ interface BarTooltipProps {
     payload: {
       name: string;
       value: number;
+      count: number;
       color: string;
       percentage: number;
     };
@@ -135,8 +138,9 @@ function BarTooltip({ active, payload, label }: BarTooltipProps) {
   return (
     <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
       <p className="font-medium text-foreground mb-1">{label}</p>
-      <div className="text-sm text-muted-foreground">
+      <div className="text-sm text-muted-foreground space-y-0.5">
         <p>Amount: {formatCurrency(data.value)}</p>
+        <p>Invoices: {data.count}</p>
         <p>Percentage: {formatPercent(data.percentage)}</p>
       </div>
     </div>
@@ -189,7 +193,7 @@ function PieChartSkeleton() {
     <div className="flex flex-col items-center justify-center h-[300px]">
       <Skeleton className="w-[200px] h-[200px] rounded-full" />
       <div className="flex gap-4 mt-4">
-        {Array.from({ length: 5 }).map((_, i) => (
+        {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="flex items-center gap-2">
             <Skeleton className="w-3 h-3 rounded-full" />
             <Skeleton className="w-16 h-4" />
@@ -204,7 +208,7 @@ function PieChartSkeleton() {
 function BarChartSkeleton() {
   return (
     <div className="h-[300px] p-4">
-      {Array.from({ length: 5 }).map((_, i) => (
+      {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="flex items-center gap-4 mb-4">
           <Skeleton className="w-20 h-4" />
           <Skeleton
@@ -294,7 +298,7 @@ export function AgingChart({
     );
   }
 
-  if (!data || data.total === 0) {
+  if (!data || parseFloat(data.total.amount) === 0) {
     return <EmptyState className={className} />;
   }
 
@@ -345,9 +349,12 @@ export function AgingChart({
           </BarChart>
         </ResponsiveContainer>
         <div className="text-center mt-2">
-          <span className="text-sm text-muted-foreground">Total: </span>
+          <span className="text-sm text-muted-foreground">Total Outstanding: </span>
           <span className="font-medium text-foreground">
-            {formatCurrency(data.total)}
+            {formatCurrency(parseFloat(data.total.amount))}
+          </span>
+          <span className="text-sm text-muted-foreground ml-2">
+            ({data.total.count} invoices)
           </span>
         </div>
       </div>
@@ -383,7 +390,10 @@ export function AgingChart({
       <div className="text-center mt-4">
         <span className="text-sm text-muted-foreground">Total Outstanding: </span>
         <span className="font-semibold text-foreground">
-          {formatCurrency(data.total)}
+          {formatCurrency(parseFloat(data.total.amount))}
+        </span>
+        <span className="text-sm text-muted-foreground ml-2">
+          ({data.total.count} invoices)
         </span>
       </div>
     </div>

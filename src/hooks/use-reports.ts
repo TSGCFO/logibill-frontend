@@ -28,10 +28,13 @@ export const reportsKeys = {
 // ============================================================================
 
 export interface RevenueReportParams {
-  start_date?: string;
-  end_date?: string;
+  date_from?: string;
+  date_to?: string;
   customer_id?: number | string;
-  group_by?: "day" | "week" | "month";
+  /** Grouping period: daily, weekly, monthly, quarterly */
+  period?: "daily" | "weekly" | "monthly" | "quarterly";
+  /** Include breakdown: customer, service_type, none */
+  group_by?: "customer" | "service_type" | "none";
 }
 
 export interface AgingReportParams {
@@ -40,16 +43,16 @@ export interface AgingReportParams {
 }
 
 export interface ProfitabilityReportParams {
-  start_date?: string;
-  end_date?: string;
+  date_from?: string;
+  date_to?: string;
   customer_id?: number | string;
 }
 
 export interface ExportReportParams {
-  report_type: "revenue" | "aging" | "profitability" | "dashboard";
-  format: "csv" | "xlsx" | "pdf";
-  start_date?: string;
-  end_date?: string;
+  type: "revenue" | "aging" | "profitability" | "dashboard";
+  format: "csv" | "excel" | "pdf";
+  date_from?: string;
+  date_to?: string;
   customer_id?: number | string;
 }
 
@@ -78,16 +81,19 @@ export function useDashboardMetrics() {
 }
 
 /**
- * Fetch revenue report with optional filtering
+ * Fetch revenue report with optional filtering.
+ *
+ * Backend query params: period, date_from, date_to, customer_id, group_by
  */
 export function useRevenueReport(params?: RevenueReportParams) {
   return useQuery({
     queryKey: reportsKeys.revenue(params),
     queryFn: async (): Promise<RevenueReport> => {
       const response = await api.get<RevenueReport>(endpoints.reports.revenue, {
-        start_date: params?.start_date,
-        end_date: params?.end_date,
+        date_from: params?.date_from,
+        date_to: params?.date_to,
         customer_id: params?.customer_id,
+        period: params?.period,
         group_by: params?.group_by,
       });
       if (!response.data) {
@@ -95,6 +101,7 @@ export function useRevenueReport(params?: RevenueReportParams) {
       }
       return response.data;
     },
+    enabled: !!(params?.date_from && params?.date_to),
     staleTime: 120000, // 2 minutes
   });
 }
@@ -120,7 +127,9 @@ export function useAgingReport(params?: AgingReportParams) {
 }
 
 /**
- * Fetch profitability report by customer and service
+ * Fetch profitability report by customer
+ *
+ * Backend query params: date_from, date_to, customer_id, min_revenue
  */
 export function useProfitabilityReport(params?: ProfitabilityReportParams) {
   return useQuery({
@@ -129,8 +138,8 @@ export function useProfitabilityReport(params?: ProfitabilityReportParams) {
       const response = await api.get<ProfitabilityReport>(
         endpoints.reports.profitability,
         {
-          start_date: params?.start_date,
-          end_date: params?.end_date,
+          date_from: params?.date_from,
+          date_to: params?.date_to,
           customer_id: params?.customer_id,
         }
       );
@@ -139,6 +148,7 @@ export function useProfitabilityReport(params?: ProfitabilityReportParams) {
       }
       return response.data;
     },
+    enabled: !!(params?.date_from && params?.date_to),
     staleTime: 120000, // 2 minutes
   });
 }
@@ -148,16 +158,25 @@ export function useProfitabilityReport(params?: ProfitabilityReportParams) {
 // ============================================================================
 
 /**
- * Export a report and get download URL
+ * Export a report via GET /api/v1/reports/export with query params.
+ *
+ * The backend returns either a file download (CSV/Excel) or a JSON response
+ * with file_url (PDF). For CSV/Excel the browser handles the download directly.
  */
 export function useExportReport() {
   return useMutation({
     mutationFn: async (
       params: ExportReportParams
     ): Promise<ExportReportResponse> => {
-      const response = await api.post<ExportReportResponse>(
+      const response = await api.get<ExportReportResponse>(
         endpoints.reports.export,
-        params
+        {
+          format: params.format,
+          type: params.type,
+          date_from: params.date_from,
+          date_to: params.date_to,
+          customer_id: params.customer_id,
+        }
       );
       if (!response.data) {
         throw new Error("Failed to export report");

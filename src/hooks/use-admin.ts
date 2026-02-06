@@ -162,6 +162,154 @@ export function useTriggerTechShipSync() {
 }
 
 // ============================================================================
+// Granular WMS Sync Mutation Hooks
+// ============================================================================
+
+/**
+ * Trigger full WMS sync (all entities)
+ * POST /api/v1/admin/sync/wms/all
+ */
+export function useTriggerWmsSyncAll() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<SyncTriggerResponse> => {
+      const response = await api.post<SyncTriggerResponse>(
+        endpoints.wmsSync.all
+      );
+      if (!response.data) {
+        throw new Error("Failed to trigger full WMS sync");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.syncStatus() });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+}
+
+/**
+ * Trigger WMS customer sync
+ * POST /api/v1/admin/sync/wms/customers
+ */
+export function useTriggerWmsSyncCustomers() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<SyncTriggerResponse> => {
+      const response = await api.post<SyncTriggerResponse>(
+        endpoints.wmsSync.customers
+      );
+      if (!response.data) {
+        throw new Error("Failed to trigger WMS customer sync");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.syncStatus() });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+}
+
+/**
+ * Trigger WMS order sync for a specific customer
+ * POST /api/v1/admin/sync/wms/orders/{customerId}
+ */
+export function useTriggerWmsSyncOrders() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (customerId: number | string): Promise<SyncTriggerResponse> => {
+      const response = await api.post<SyncTriggerResponse>(
+        endpoints.wmsSync.orders(customerId)
+      );
+      if (!response.data) {
+        throw new Error("Failed to trigger WMS order sync");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.syncStatus() });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+}
+
+/**
+ * Trigger WMS inventory sync for a specific customer
+ * POST /api/v1/admin/sync/wms/inventory/{customerId}
+ */
+export function useTriggerWmsSyncInventory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (customerId: number | string): Promise<SyncTriggerResponse> => {
+      const response = await api.post<SyncTriggerResponse>(
+        endpoints.wmsSync.inventory(customerId)
+      );
+      if (!response.data) {
+        throw new Error("Failed to trigger WMS inventory sync");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.syncStatus() });
+    },
+  });
+}
+
+/**
+ * Trigger WMS product sync for a specific customer
+ * POST /api/v1/admin/sync/wms/products/{customerId}
+ */
+export function useTriggerWmsSyncProducts() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (customerId: number | string): Promise<SyncTriggerResponse> => {
+      const response = await api.post<SyncTriggerResponse>(
+        endpoints.wmsSync.products(customerId)
+      );
+      if (!response.data) {
+        throw new Error("Failed to trigger WMS product sync");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.syncStatus() });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+/**
+ * Trigger WMS product sync for all customers
+ * POST /api/v1/admin/sync/wms/products/all
+ */
+export function useTriggerWmsSyncProductsAll() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<SyncTriggerResponse> => {
+      const response = await api.post<SyncTriggerResponse>(
+        endpoints.wmsSync.productsAll
+      );
+      if (!response.data) {
+        throw new Error("Failed to trigger WMS product sync for all customers");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.syncStatus() });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+  });
+}
+
+// ============================================================================
 // Admin Users Query Hooks
 // ============================================================================
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useFiles, useDeleteFile, useDownloadFile } from "@/hooks/use-files";
+import type { FileRecord } from "@/hooks/use-files";
 import Link from "next/link";
 import {
   Upload,
@@ -12,6 +14,8 @@ import {
   Search,
   Filter,
   FolderOpen,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -43,57 +47,6 @@ import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
 import { formatDateTime } from "@/lib/format";
 
-interface FileRecord {
-  id: string;
-  name: string;
-  type: "invoice" | "report" | "import" | "export";
-  mime_type: string;
-  size: number;
-  uploaded_by: string;
-  uploaded_at: string;
-  customer_code?: string;
-}
-
-const mockFiles: FileRecord[] = [
-  {
-    id: "1",
-    name: "Invoice_VAS_2024-01.pdf",
-    type: "invoice",
-    mime_type: "application/pdf",
-    size: 245000,
-    uploaded_by: "admin@logibill.com",
-    uploaded_at: "2024-01-15T10:30:00Z",
-    customer_code: "VAS",
-  },
-  {
-    id: "2",
-    name: "Revenue_Report_Q4_2023.xlsx",
-    type: "report",
-    mime_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    size: 892000,
-    uploaded_by: "admin@logibill.com",
-    uploaded_at: "2024-01-10T14:15:00Z",
-  },
-  {
-    id: "3",
-    name: "product_import_batch_001.csv",
-    type: "import",
-    mime_type: "text/csv",
-    size: 45000,
-    uploaded_by: "admin@logibill.com",
-    uploaded_at: "2024-01-08T09:00:00Z",
-  },
-  {
-    id: "4",
-    name: "orders_export_2024-01.csv",
-    type: "export",
-    mime_type: "text/csv",
-    size: 1250000,
-    uploaded_by: "accounting@logibill.com",
-    uploaded_at: "2024-01-05T16:45:00Z",
-  },
-];
-
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -110,100 +63,134 @@ function getFileIcon(mimeType: string) {
   return <FileText className="h-4 w-4 text-blue-500" />;
 }
 
-const columns: ColumnDef<FileRecord>[] = [
-  {
-    accessorKey: "name",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="File Name" />
-    ),
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        {getFileIcon(row.original.mime_type)}
-        <span className="font-medium">{row.original.name}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "type",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Type" />
-    ),
-    cell: ({ row }) => (
-      <Badge variant="outline">{row.original.type}</Badge>
-    ),
-  },
-  {
-    accessorKey: "customer_code",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Customer" />
-    ),
-    cell: ({ row }) =>
-      row.original.customer_code ? (
-        <Link
-          href={`/customers/${row.original.customer_code}`}
-          className="hover:underline"
-        >
-          {row.original.customer_code}
-        </Link>
-      ) : (
-        <span className="text-muted-foreground">-</span>
+function getColumns(
+  onDownload: (id: number | string) => void,
+  onDelete: (id: number | string) => void
+): ColumnDef<FileRecord>[] {
+  return [
+    {
+      accessorKey: "name",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="File Name" />
       ),
-  },
-  {
-    accessorKey: "size",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Size" />
-    ),
-    cell: ({ row }) => formatFileSize(row.original.size),
-  },
-  {
-    accessorKey: "uploaded_at",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Uploaded" />
-    ),
-    cell: ({ row }) => (
-      <div>
-        <p>{formatDateTime(row.original.uploaded_at)}</p>
-        <p className="text-xs text-muted-foreground">
-          {row.original.uploaded_by}
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <span className="sr-only">Open menu</span>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          <DropdownMenuItem>
-            <Download className="mr-2 h-4 w-4" />
-            Download
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
-  },
-];
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          {getFileIcon(row.original.mime_type)}
+          <span className="font-medium">{row.original.name}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "type",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Type" />
+      ),
+      cell: ({ row }) => (
+        <Badge variant="outline">{row.original.type}</Badge>
+      ),
+    },
+    {
+      accessorKey: "customer_code",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Customer" />
+      ),
+      cell: ({ row }) =>
+        row.original.customer_code ? (
+          <Link
+            href={`/customers/${row.original.customer_code}`}
+            className="hover:underline"
+          >
+            {row.original.customer_code}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+    },
+    {
+      accessorKey: "size",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Size" />
+      ),
+      cell: ({ row }) => formatFileSize(row.original.size),
+    },
+    {
+      accessorKey: "uploaded_at",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Uploaded" />
+      ),
+      cell: ({ row }) => (
+        <div>
+          <p>{formatDateTime(row.original.uploaded_at)}</p>
+          <p className="text-xs text-muted-foreground">
+            {row.original.uploaded_by}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => onDownload(row.original.id)}>
+              <Download className="mr-2 h-4 w-4" />
+              Download
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => onDelete(row.original.id)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+}
 
 export default function FilesPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
-  const filteredFiles =
-    typeFilter === "all"
-      ? mockFiles
-      : mockFiles.filter((file) => file.type === typeFilter);
+  // Fetch files with type filter (pass undefined for "all" so the API returns everything)
+  const filesParams = {
+    ...(typeFilter !== "all" ? { type: typeFilter } : {}),
+  };
+  const { data: files = [], isLoading, isError, error } = useFiles(filesParams);
+
+  // Mutations
+  const deleteFile = useDeleteFile();
+  const downloadFile = useDownloadFile();
+
+  const handleDownload = (id: number | string) => {
+    downloadFile.mutate(id);
+  };
+
+  const handleDelete = (id: number | string) => {
+    deleteFile.mutate(id);
+  };
+
+  // Memoize columns so TanStack Table doesn't re-render needlessly
+  const columns = useMemo(
+    () => getColumns(handleDownload, handleDelete),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  // Compute stat card values from real data
+  const totalFiles = files.length;
+  const invoiceCount = files.filter((f) => f.type === "invoice").length;
+  const reportCount = files.filter((f) => f.type === "report").length;
+  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
 
   return (
     <div className="space-y-6">
@@ -231,7 +218,9 @@ export default function FilesPage() {
             <FolderOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockFiles.length}</div>
+            <div className="text-2xl font-bold">
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : totalFiles}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -241,7 +230,7 @@ export default function FilesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {mockFiles.filter((f) => f.type === "invoice").length}
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : invoiceCount}
             </div>
           </CardContent>
         </Card>
@@ -252,7 +241,7 @@ export default function FilesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {mockFiles.filter((f) => f.type === "report").length}
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : reportCount}
             </div>
           </CardContent>
         </Card>
@@ -263,7 +252,7 @@ export default function FilesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatFileSize(mockFiles.reduce((sum, f) => sum + f.size, 0))}
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : formatFileSize(totalSize)}
             </div>
           </CardContent>
         </Card>
@@ -300,12 +289,44 @@ export default function FilesPage() {
             </Select>
           </div>
 
-          <DataTable
-            columns={columns}
-            data={filteredFiles}
-            searchKey="name"
-            searchPlaceholder="Search files..."
-          />
+          {/* Loading state */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Loading files...</span>
+            </div>
+          )}
+
+          {/* Error state */}
+          {isError && (
+            <div className="flex items-center justify-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 py-8 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              <span>Failed to load files{error instanceof Error ? `: ${error.message}` : "."}</span>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!isLoading && !isError && files.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <FolderOpen className="mb-4 h-12 w-12" />
+              <p className="text-lg font-medium">No files found</p>
+              <p className="text-sm">
+                {typeFilter !== "all"
+                  ? "Try changing the type filter or upload a new file."
+                  : "Upload your first file to get started."}
+              </p>
+            </div>
+          )}
+
+          {/* Data table - only render when we have data */}
+          {!isLoading && !isError && files.length > 0 && (
+            <DataTable
+              columns={columns}
+              data={files}
+              searchKey="name"
+              searchPlaceholder="Search files..."
+            />
+          )}
         </CardContent>
       </Card>
     </div>

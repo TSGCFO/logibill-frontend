@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Package,
   Search,
   Filter,
   Download,
-  ArrowUpDown,
   Building,
+  MapPin,
+  AlertTriangle,
+  Loader2,
+  ArrowRightLeft,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -28,73 +31,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
-import { formatNumber } from "@/lib/format";
-
-interface InventoryItem {
-  id: string;
-  sku: string;
-  product_name: string;
-  customer_name: string;
-  customer_code: string;
-  quantity_on_hand: number;
-  quantity_available: number;
-  quantity_reserved: number;
-  location: string;
-  last_movement: string;
-}
-
-const mockInventory: InventoryItem[] = [
-  {
-    id: "1",
-    sku: "VAS-SERUM-001",
-    product_name: "Vitamin C Serum 30ml",
-    customer_name: "Vasanti Cosmetics",
-    customer_code: "VAS",
-    quantity_on_hand: 1250,
-    quantity_available: 1100,
-    quantity_reserved: 150,
-    location: "A-12-3",
-    last_movement: "2024-01-15T14:30:00Z",
-  },
-  {
-    id: "2",
-    sku: "VAS-CREAM-002",
-    product_name: "Hydrating Face Cream 50ml",
-    customer_name: "Vasanti Cosmetics",
-    customer_code: "VAS",
-    quantity_on_hand: 850,
-    quantity_available: 850,
-    quantity_reserved: 0,
-    location: "A-12-4",
-    last_movement: "2024-01-14T09:15:00Z",
-  },
-  {
-    id: "3",
-    sku: "CK-LIP-001",
-    product_name: "Organic Lip Balm",
-    customer_name: "Clean Kiss",
-    customer_code: "CK",
-    quantity_on_hand: 3200,
-    quantity_available: 2800,
-    quantity_reserved: 400,
-    location: "B-05-1",
-    last_movement: "2024-01-15T11:00:00Z",
-  },
-  {
-    id: "4",
-    sku: "CK-SOAP-002",
-    product_name: "Natural Hand Soap 250ml",
-    customer_name: "Clean Kiss",
-    customer_code: "CK",
-    quantity_on_hand: 500,
-    quantity_available: 500,
-    quantity_reserved: 0,
-    location: "B-05-2",
-    last_movement: "2024-01-13T16:45:00Z",
-  },
-];
+import { formatNumber, formatDateTime } from "@/lib/format";
+import { useInventory, useInventorySummary } from "@/hooks/use-inventory";
+import { useCustomers } from "@/hooks/use-customers";
+import type { InventoryItem } from "@/types";
 
 const columns: ColumnDef<InventoryItem>[] = [
   {
@@ -107,25 +51,39 @@ const columns: ColumnDef<InventoryItem>[] = [
     ),
   },
   {
-    accessorKey: "product_name",
+    accessorKey: "description",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Product" />
     ),
+    cell: ({ row }) => (
+      <span className="max-w-[200px] truncate">
+        {row.original.description || "-"}
+      </span>
+    ),
   },
   {
-    accessorKey: "customer_code",
+    accessorKey: "customer_name",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Customer" />
     ),
     cell: ({ row }) => (
-      <Link
-        href={`/customers/${row.original.customer_code}`}
-        className="flex items-center gap-1 hover:underline"
-      >
-        <Building className="h-3 w-3" />
-        {row.original.customer_code}
-      </Link>
+      <div className="flex items-center gap-1">
+        <Building className="h-3 w-3 text-muted-foreground" />
+        <span>{row.original.customer_name || "-"}</span>
+      </div>
     ),
+  },
+  {
+    accessorKey: "location",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Location" />
+    ),
+    cell: ({ row }) =>
+      row.original.location ? (
+        <Badge variant="outline">{row.original.location}</Badge>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
   },
   {
     accessorKey: "quantity_on_hand",
@@ -146,50 +104,81 @@ const columns: ColumnDef<InventoryItem>[] = [
     cell: ({ row }) => formatNumber(row.original.quantity_available),
   },
   {
-    accessorKey: "quantity_reserved",
+    accessorKey: "quantity_allocated",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Reserved" />
+      <DataTableColumnHeader column={column} title="Allocated" />
     ),
     cell: ({ row }) =>
-      row.original.quantity_reserved > 0 ? (
+      row.original.quantity_allocated > 0 ? (
         <Badge variant="secondary">
-          {formatNumber(row.original.quantity_reserved)}
+          {formatNumber(row.original.quantity_allocated)}
         </Badge>
       ) : (
         <span className="text-muted-foreground">0</span>
       ),
   },
   {
-    accessorKey: "location",
+    accessorKey: "last_updated",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Location" />
+      <DataTableColumnHeader column={column} title="Last Updated" />
     ),
-    cell: ({ row }) => (
-      <Badge variant="outline">{row.original.location}</Badge>
-    ),
+    cell: ({ row }) =>
+      row.original.last_updated ? (
+        <span className="text-sm text-muted-foreground">
+          {formatDateTime(row.original.last_updated)}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
   },
 ];
 
 export default function InventoryPage() {
+  const [page, setPage] = useState(1);
   const [customerFilter, setCustomerFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
 
-  const filteredInventory =
-    customerFilter === "all"
-      ? mockInventory
-      : mockInventory.filter((item) => item.customer_code === customerFilter);
+  // Debounce search input
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    // Simple debounce using timeout
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timeout);
+  };
 
-  const totalOnHand = filteredInventory.reduce(
-    (sum, item) => sum + item.quantity_on_hand,
-    0
+  const inventoryParams = useMemo(
+    () => ({
+      page,
+      per_page: 20,
+      customer_id: customerFilter !== "all" ? customerFilter : undefined,
+      search: debouncedSearch || undefined,
+      low_stock: lowStockOnly || undefined,
+    }),
+    [page, customerFilter, debouncedSearch, lowStockOnly]
   );
-  const totalAvailable = filteredInventory.reduce(
-    (sum, item) => sum + item.quantity_available,
-    0
-  );
-  const totalReserved = filteredInventory.reduce(
-    (sum, item) => sum + item.quantity_reserved,
-    0
-  );
+
+  const { data: inventoryData, isLoading } = useInventory(inventoryParams);
+  const { data: summaryData, isLoading: summaryLoading } =
+    useInventorySummary(
+      customerFilter !== "all" ? customerFilter : undefined
+    );
+  const { data: customersData } = useCustomers();
+
+  const inventory = inventoryData?.data ?? [];
+  const meta = inventoryData?.meta;
+  const customers = customersData?.data ?? [];
+
+  const summary = summaryData ?? {
+    total_skus: 0,
+    total_quantity: 0,
+    total_locations: 0,
+    low_stock_count: 0,
+  };
 
   return (
     <div className="space-y-6">
@@ -202,6 +191,12 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/inventory/transactions">
+              <ArrowRightLeft className="mr-2 h-4 w-4" />
+              Transactions
+            </Link>
+          </Button>
           <Button variant="outline">
             <Download className="mr-2 h-4 w-4" />
             Export
@@ -217,43 +212,71 @@ export default function InventoryPage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{filteredInventory.length}</div>
+            {summaryLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : (
+              <div className="text-2xl font-bold">
+                {formatNumber(summary.total_skus)}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total On Hand</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Quantity
+            </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(totalOnHand)}</div>
+            {summaryLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : (
+              <div className="text-2xl font-bold">
+                {formatNumber(summary.total_quantity)}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Available</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Locations</CardTitle>
+            <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatNumber(totalAvailable)}
-            </div>
+            {summaryLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : (
+              <div className="text-2xl font-bold">
+                {formatNumber(summary.total_locations)}
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Reserved</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatNumber(totalReserved)}
-            </div>
+            {summaryLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : (
+              <div className="text-2xl font-bold">
+                {summary.low_stock_count > 0 ? (
+                  <span className="text-destructive">
+                    {formatNumber(summary.low_stock_count)}
+                  </span>
+                ) : (
+                  formatNumber(summary.low_stock_count)
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Filters and Table */}
       <Card>
         <CardHeader>
           <CardTitle>Inventory Levels</CardTitle>
@@ -262,31 +285,62 @@ export default function InventoryPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Search SKU or product..." className="pl-9" />
+                <Input
+                  placeholder="Search SKU or product..."
+                  className="pl-9"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                />
               </div>
             </div>
-            <Select value={customerFilter} onValueChange={setCustomerFilter}>
+            <Select
+              value={customerFilter}
+              onValueChange={(value) => {
+                setCustomerFilter(value);
+                setPage(1);
+              }}
+            >
               <SelectTrigger className="w-[200px]">
                 <Filter className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="All customers" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Customers</SelectItem>
-                <SelectItem value="VAS">Vasanti Cosmetics</SelectItem>
-                <SelectItem value="CK">Clean Kiss</SelectItem>
+                {customers.map((customer) => (
+                  <SelectItem key={customer.id} value={String(customer.id)}>
+                    {customer.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="low-stock"
+                checked={lowStockOnly}
+                onCheckedChange={(checked) => {
+                  setLowStockOnly(checked);
+                  setPage(1);
+                }}
+              />
+              <Label htmlFor="low-stock" className="text-sm cursor-pointer">
+                Low Stock Only
+              </Label>
+            </div>
           </div>
 
           <DataTable
             columns={columns}
-            data={filteredInventory}
-            searchKey="sku"
-            searchPlaceholder="Search inventory..."
+            data={inventory}
+            isLoading={isLoading}
+            manualPagination={true}
+            pageCount={meta?.total_pages ?? 0}
+            pageIndex={page - 1}
+            pageSize={20}
+            onPaginationChange={({ pageIndex }) => setPage(pageIndex + 1)}
           />
         </CardContent>
       </Card>

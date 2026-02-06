@@ -178,35 +178,36 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Revenue MTD"
-          value={formatCurrency(metrics?.revenue_mtd ?? 0)}
-          change={`${metrics?.revenue_change_pct ?? 0}%`}
+          value={formatCurrency(parseFloat(metrics?.revenue_mtd ?? "0"))}
+          change={metrics?.revenue_change_pct ? `${parseFloat(metrics.revenue_change_pct).toFixed(1)}%` : undefined}
           changeLabel="vs last month"
           icon={DollarSign}
-          trend={(metrics?.revenue_change_pct ?? 0) >= 0 ? "up" : "down"}
+          trend={parseFloat(metrics?.revenue_change_pct ?? "0") >= 0 ? "up" : "down"}
           href="/reports"
           isLoading={isLoading}
         />
         <MetricCard
           title="Orders Today"
           value={formatNumber(metrics?.orders_today ?? 0)}
-          change={`${metrics?.orders_avg_diff ?? 0}`}
-          changeLabel="vs daily avg"
+          change={`${formatNumber(metrics?.orders_mtd ?? 0)} this month`}
           icon={Package}
-          trend={(metrics?.orders_avg_diff ?? 0) >= 0 ? "up" : "down"}
+          trend={parseFloat(metrics?.orders_change_pct ?? "0") >= 0 ? "up" : "down"}
           href="/orders"
           isLoading={isLoading}
         />
         <MetricCard
           title="Pending Invoices"
-          value={formatNumber(metrics?.pending_invoices ?? 0)}
+          value={formatNumber(metrics?.pending_invoices_count ?? 0)}
+          change={formatCurrency(parseFloat(metrics?.pending_invoices_amount ?? "0"))}
+          changeLabel="total amount"
           icon={FileText}
           href="/invoices?status=pending"
           isLoading={isLoading}
         />
         <MetricCard
           title="Overdue"
-          value={formatNumber(metrics?.overdue_invoices ?? 0)}
-          change={formatCurrency(metrics?.overdue_amount ?? 0)}
+          value={formatNumber(metrics?.overdue_invoices_count ?? 0)}
+          change={formatCurrency(parseFloat(metrics?.overdue_invoices_amount ?? "0"))}
           icon={AlertCircle}
           trend="neutral"
           href="/invoices?status=overdue"

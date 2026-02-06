@@ -5,6 +5,8 @@ import {
   Area,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -16,15 +18,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
 import type { RevenueReport } from "@/types";
 
-export type ChartType = "bar" | "area";
-export type GroupBy = "day" | "week" | "month";
+export type ChartType = "bar" | "area" | "line";
+export type GroupBy = "daily" | "weekly" | "monthly" | "quarterly";
 
 interface RevenueChartProps {
-  data?: RevenueReport[];
+  data?: RevenueReport;
   isLoading?: boolean;
   chartType?: ChartType;
   groupBy?: GroupBy;
-  showByChargeType?: boolean;
   className?: string;
 }
 
@@ -36,19 +37,6 @@ const CHART_COLORS = {
   quaternary: "hsl(var(--chart-4))",
   quinary: "hsl(var(--chart-5))",
 };
-
-const CHARGE_TYPE_COLORS: Record<string, string> = {
-  fulfillment: CHART_COLORS.primary,
-  shipping: CHART_COLORS.secondary,
-  materials: CHART_COLORS.tertiary,
-  storage: CHART_COLORS.quaternary,
-  other: CHART_COLORS.quinary,
-};
-
-function getChargeTypeColor(chargeType: string): string {
-  const key = chargeType.toLowerCase();
-  return CHARGE_TYPE_COLORS[key] || CHART_COLORS.primary;
-}
 
 // Custom tooltip component
 interface CustomTooltipProps {
@@ -142,52 +130,33 @@ function EmptyState({ className }: { className?: string }) {
   );
 }
 
-// Transform data for charge type breakdown
-function transformDataForChargeTypes(data: RevenueReport[]): Array<Record<string, unknown>> {
-  return data.map((report) => {
-    const transformed: Record<string, unknown> = {
-      period: report.period,
-      total: report.total,
-    };
-
-    report.by_charge_type.forEach((ct) => {
-      transformed[ct.charge_type] = ct.amount;
-    });
-
-    return transformed;
-  });
-}
-
-// Get unique charge types from data
-function getUniqueChargeTypes(data: RevenueReport[]): string[] {
-  const chargeTypes = new Set<string>();
-  data.forEach((report) => {
-    report.by_charge_type.forEach((ct) => {
-      chargeTypes.add(ct.charge_type);
-    });
-  });
-  return Array.from(chargeTypes);
+/**
+ * Transform backend data_points into chart-ready format.
+ * Backend returns amounts as strings (Decimal serialization), so we parse them.
+ */
+function transformDataPoints(data: RevenueReport) {
+  return data.data_points.map((dp) => ({
+    period: dp.period_label || dp.date,
+    amount: parseFloat(dp.amount),
+    count: dp.count,
+  }));
 }
 
 export function RevenueChart({
   data,
   isLoading = false,
   chartType = "bar",
-  showByChargeType = false,
   className,
 }: RevenueChartProps) {
   if (isLoading) {
     return <ChartSkeleton className={className} />;
   }
 
-  if (!data || data.length === 0) {
+  if (!data || data.data_points.length === 0) {
     return <EmptyState className={className} />;
   }
 
-  const chargeTypes = showByChargeType ? getUniqueChargeTypes(data) : [];
-  const chartData = showByChargeType
-    ? transformDataForChargeTypes(data)
-    : data.map((d) => ({ period: d.period, total: d.total }));
+  const chartData = transformDataPoints(data);
 
   const commonProps = {
     data: chartData,
@@ -195,28 +164,54 @@ export function RevenueChart({
   };
 
   const renderChart = () => {
+    if (chartType === "line") {
+      return (
+        <LineChart {...commonProps}>
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="hsl(var(--border))"
+            vertical={false}
+          />
+          <XAxis
+            dataKey="period"
+            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+            tickLine={false}
+            axisLine={{ stroke: "hsl(var(--border))" }}
+          />
+          <YAxis
+            tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={formatYAxisTick}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend
+            wrapperStyle={{ paddingTop: 20 }}
+            formatter={(value) => (
+              <span className="text-sm text-foreground capitalize">{value}</span>
+            )}
+          />
+          <Line
+            type="monotone"
+            dataKey="amount"
+            name="Revenue"
+            stroke={CHART_COLORS.primary}
+            strokeWidth={2}
+            dot={{ r: 4, fill: CHART_COLORS.primary }}
+            activeDot={{ r: 6 }}
+          />
+        </LineChart>
+      );
+    }
+
     if (chartType === "area") {
       return (
         <AreaChart {...commonProps}>
           <defs>
-            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.8} />
               <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0.1} />
             </linearGradient>
-            {chargeTypes.map((ct, index) => (
-              <linearGradient key={ct} id={`color${ct}`} x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="5%"
-                  stopColor={getChargeTypeColor(ct)}
-                  stopOpacity={0.8}
-                />
-                <stop
-                  offset="95%"
-                  stopColor={getChargeTypeColor(ct)}
-                  stopOpacity={0.1}
-                />
-              </linearGradient>
-            ))}
           </defs>
           <CartesianGrid
             strokeDasharray="3 3"
@@ -242,29 +237,14 @@ export function RevenueChart({
               <span className="text-sm text-foreground capitalize">{value}</span>
             )}
           />
-          {showByChargeType ? (
-            chargeTypes.map((ct) => (
-              <Area
-                key={ct}
-                type="monotone"
-                dataKey={ct}
-                name={ct}
-                stroke={getChargeTypeColor(ct)}
-                fillOpacity={1}
-                fill={`url(#color${ct})`}
-                stackId="1"
-              />
-            ))
-          ) : (
-            <Area
-              type="monotone"
-              dataKey="total"
-              name="Revenue"
-              stroke={CHART_COLORS.primary}
-              fillOpacity={1}
-              fill="url(#colorTotal)"
-            />
-          )}
+          <Area
+            type="monotone"
+            dataKey="amount"
+            name="Revenue"
+            stroke={CHART_COLORS.primary}
+            fillOpacity={1}
+            fill="url(#colorRevenue)"
+          />
         </AreaChart>
       );
     }
@@ -296,31 +276,40 @@ export function RevenueChart({
             <span className="text-sm text-foreground capitalize">{value}</span>
           )}
         />
-        {showByChargeType ? (
-          chargeTypes.map((ct) => (
-            <Bar
-              key={ct}
-              dataKey={ct}
-              name={ct}
-              fill={getChargeTypeColor(ct)}
-              radius={[4, 4, 0, 0]}
-              stackId="stack"
-            />
-          ))
-        ) : (
-          <Bar
-            dataKey="total"
-            name="Revenue"
-            fill={CHART_COLORS.primary}
-            radius={[4, 4, 0, 0]}
-          />
-        )}
+        <Bar
+          dataKey="amount"
+          name="Revenue"
+          fill={CHART_COLORS.primary}
+          radius={[4, 4, 0, 0]}
+        />
       </BarChart>
     );
   };
 
   return (
     <div className={className}>
+      {/* Summary row */}
+      <div className="flex flex-wrap gap-6 mb-4 text-sm">
+        <div>
+          <span className="text-muted-foreground">Total: </span>
+          <span className="font-medium text-foreground">
+            {formatCurrency(parseFloat(data.totals.total_amount))}
+          </span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Invoices: </span>
+          <span className="font-medium text-foreground">
+            {data.totals.total_count}
+          </span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Average: </span>
+          <span className="font-medium text-foreground">
+            {formatCurrency(parseFloat(data.totals.average))}
+          </span>
+        </div>
+      </div>
+
       <ResponsiveContainer width="100%" height={300}>
         {renderChart()}
       </ResponsiveContainer>

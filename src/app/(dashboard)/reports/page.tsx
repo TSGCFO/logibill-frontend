@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -33,7 +33,6 @@ import {
   useAgingReport,
   useProfitabilityReport,
   useExportReport,
-  type RevenueReportParams,
 } from "@/hooks/use-reports";
 import { RevenueChart, AgingChart, ProfitabilityChart } from "@/components/charts";
 import { formatCurrency, formatNumber } from "@/lib/format";
@@ -42,17 +41,19 @@ import { formatCurrency, formatNumber } from "@/lib/format";
  * Reports Page
  *
  * Analytics and reporting dashboard with real chart visualizations.
- * Connected to API via report hooks.
+ * Connected to backend API via report hooks.
  *
  * Track: frontend-prod_20260202
  * Task: 2.2, 2.4, 2.6
  */
 export default function ReportsPage() {
   const [period, setPeriod] = useState("30d");
-  const [revenueGroupBy, setRevenueGroupBy] = useState<"day" | "week" | "month">("week");
+  const [revenuePeriod, setRevenuePeriod] = useState<
+    "daily" | "weekly" | "monthly" | "quarterly"
+  >("weekly");
 
-  // Calculate date range based on period
-  const getDateRange = () => {
+  // Calculate date range based on period selection
+  const dateRange = useMemo(() => {
     const end = new Date();
     const start = new Date();
 
@@ -74,18 +75,16 @@ export default function ReportsPage() {
     }
 
     return {
-      start_date: start.toISOString().split("T")[0],
-      end_date: end.toISOString().split("T")[0],
+      date_from: start.toISOString().split("T")[0],
+      date_to: end.toISOString().split("T")[0],
     };
-  };
-
-  const dateRange = getDateRange();
+  }, [period]);
 
   // Fetch report data
   const { data: metrics, isLoading: metricsLoading } = useDashboardMetrics();
   const { data: revenueData, isLoading: revenueLoading } = useRevenueReport({
     ...dateRange,
-    group_by: revenueGroupBy,
+    period: revenuePeriod,
   });
   const { data: agingData, isLoading: agingLoading } = useAgingReport();
   const { data: profitabilityData, isLoading: profitabilityLoading } =
@@ -94,16 +93,20 @@ export default function ReportsPage() {
   // Export mutation
   const exportMutation = useExportReport();
 
-  const handleExport = async (reportType: "revenue" | "aging" | "profitability" | "dashboard") => {
+  const handleExport = async (
+    reportType: "revenue" | "aging" | "profitability" | "dashboard"
+  ) => {
     try {
       const result = await exportMutation.mutateAsync({
-        report_type: reportType,
-        format: "xlsx",
+        type: reportType,
+        format: "excel",
         ...dateRange,
       });
 
       // Open download URL
-      window.open(result.download_url, "_blank");
+      if (result.file_url) {
+        window.open(result.file_url, "_blank");
+      }
       toast.success("Export ready", {
         description: `${result.filename} is downloading`,
       });
@@ -114,8 +117,14 @@ export default function ReportsPage() {
     }
   };
 
-  // Transform revenue data for chart (array format)
-  const revenueChartData = revenueData ? [revenueData] : undefined;
+  // Parse dashboard string amounts to numbers for display
+  const revenueMtd = metrics ? parseFloat(metrics.revenue_mtd) : 0;
+  const revenueChangePct = metrics?.revenue_change_pct
+    ? parseFloat(metrics.revenue_change_pct)
+    : 0;
+  const overdueAmount = metrics
+    ? parseFloat(metrics.overdue_invoices_amount)
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -164,11 +173,18 @@ export default function ReportsPage() {
             ) : (
               <>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(metrics?.revenue_mtd ?? 0)}
+                  {formatCurrency(revenueMtd)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  <span className={metrics?.revenue_change_pct && metrics.revenue_change_pct >= 0 ? "text-green-600" : "text-red-600"}>
-                    {metrics?.revenue_change_pct ? `${metrics.revenue_change_pct >= 0 ? "+" : ""}${metrics.revenue_change_pct.toFixed(1)}%` : "0%"}
+                  <span
+                    className={
+                      revenueChangePct >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }
+                  >
+                    {revenueChangePct >= 0 ? "+" : ""}
+                    {revenueChangePct.toFixed(1)}%
                   </span>{" "}
                   from last period
                 </p>
@@ -191,10 +207,7 @@ export default function ReportsPage() {
                   {formatNumber(metrics?.orders_today ?? 0)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  <span className={metrics?.orders_avg_diff && metrics.orders_avg_diff >= 0 ? "text-green-600" : "text-red-600"}>
-                    {metrics?.orders_avg_diff ? `${metrics.orders_avg_diff >= 0 ? "+" : ""}${metrics.orders_avg_diff}` : "0"}
-                  </span>{" "}
-                  vs daily average
+                  {formatNumber(metrics?.orders_mtd ?? 0)} this month
                 </p>
               </>
             )}
@@ -203,7 +216,9 @@ export default function ReportsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Invoices</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Invoices
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -212,9 +227,12 @@ export default function ReportsPage() {
             ) : (
               <>
                 <div className="text-2xl font-bold">
-                  {formatNumber(metrics?.pending_invoices ?? 0)}
+                  {formatNumber(metrics?.pending_invoices_count ?? 0)}
                 </div>
                 <p className="text-xs text-muted-foreground">
+                  {formatCurrency(
+                    parseFloat(metrics?.pending_invoices_amount ?? "0")
+                  )}{" "}
                   awaiting payment
                 </p>
               </>
@@ -224,7 +242,9 @@ export default function ReportsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue Amount</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Overdue Amount
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -233,10 +253,11 @@ export default function ReportsPage() {
             ) : (
               <>
                 <div className="text-2xl font-bold text-destructive">
-                  {formatCurrency(metrics?.overdue_amount ?? 0)}
+                  {formatCurrency(overdueAmount)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {formatNumber(metrics?.overdue_invoices ?? 0)} invoices overdue
+                  {formatNumber(metrics?.overdue_invoices_count ?? 0)} invoices
+                  overdue
                 </p>
               </>
             )}
@@ -263,14 +284,22 @@ export default function ReportsPage() {
                 </CardDescription>
               </div>
               <div className="flex gap-2">
-                <Select value={revenueGroupBy} onValueChange={(v) => setRevenueGroupBy(v as "day" | "week" | "month")}>
-                  <SelectTrigger className="w-[120px]">
+                <Select
+                  value={revenuePeriod}
+                  onValueChange={(v) =>
+                    setRevenuePeriod(
+                      v as "daily" | "weekly" | "monthly" | "quarterly"
+                    )
+                  }
+                >
+                  <SelectTrigger className="w-[130px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="day">Daily</SelectItem>
-                    <SelectItem value="week">Weekly</SelectItem>
-                    <SelectItem value="month">Monthly</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button
@@ -284,11 +313,10 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent>
               <RevenueChart
-                data={revenueChartData}
+                data={revenueData}
                 isLoading={revenueLoading}
                 chartType="bar"
-                groupBy={revenueGroupBy}
-                showByChargeType
+                groupBy={revenuePeriod}
               />
             </CardContent>
           </Card>
@@ -364,37 +392,50 @@ export default function ReportsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Service Breakdown</CardTitle>
-              <CardDescription>
-                Revenue by service type
-              </CardDescription>
+              <CardDescription>Revenue by service type</CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Service breakdown uses charge type data from revenue report */}
+              {/* Service breakdown uses by_service_type from revenue report */}
               {revenueLoading ? (
                 <div className="h-[400px] flex items-center justify-center">
                   <Skeleton className="h-64 w-full" />
                 </div>
-              ) : revenueData?.by_charge_type && revenueData.by_charge_type.length > 0 ? (
+              ) : revenueData?.by_service_type &&
+                revenueData.by_service_type.length > 0 ? (
                 <div className="space-y-4">
-                  {revenueData.by_charge_type.map((item) => (
-                    <div key={item.charge_type} className="flex items-center justify-between p-4 border rounded-lg">
-                      <div>
-                        <p className="font-medium capitalize">{item.charge_type.replace("_", " ")}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {((item.amount / revenueData.total) * 100).toFixed(1)}% of total
-                        </p>
+                  {revenueData.by_service_type.map((item) => {
+                    const amount = parseFloat(item.amount);
+                    const percentage = parseFloat(item.percentage);
+                    return (
+                      <div
+                        key={item.service_type}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {item.service_type_name || item.service_type}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {percentage.toFixed(1)}% of total ({item.count}{" "}
+                            charges)
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">{formatCurrency(amount)}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold">{formatCurrency(item.amount)}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="h-[400px] flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
                     <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No service data available</p>
+                    <p className="text-sm mt-1">
+                      Request service type breakdown by changing the revenue
+                      report group_by parameter
+                    </p>
                   </div>
                 </div>
               )}

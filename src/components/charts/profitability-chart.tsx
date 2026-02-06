@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import type { ProfitabilityReport } from "@/types";
 
-export type SortBy = "revenue" | "profit" | "margin";
+export type SortBy = "revenue" | "margin" | "margin_pct";
 
 interface ProfitabilityChartProps {
   data?: ProfitabilityReport;
@@ -43,17 +43,32 @@ function getMarginColor(marginPct: number): string {
   return "hsl(0, 84%, 60%)"; // Red - negative margin
 }
 
-// Transform and sort data
+/**
+ * Transform and sort profitability data.
+ * Backend returns string amounts from Decimal serialization.
+ */
 function transformData(
   data: ProfitabilityReport,
   sortBy: SortBy,
   maxCustomers: number
 ) {
-  const sorted = [...data.by_customer].sort((a, b) => {
+  const parsed = data.customers.map((customer) => ({
+    customer_id: customer.customer_id,
+    name: customer.customer_name,
+    revenue: parseFloat(customer.revenue),
+    costs: parseFloat(customer.costs),
+    margin: parseFloat(customer.margin),
+    margin_pct: parseFloat(customer.margin_pct),
+    order_count: customer.order_count,
+    avg_order_value: parseFloat(customer.avg_order_value),
+    marginColor: getMarginColor(parseFloat(customer.margin_pct)),
+  }));
+
+  const sorted = parsed.sort((a, b) => {
     switch (sortBy) {
-      case "profit":
-        return b.profit - a.profit;
       case "margin":
+        return b.margin - a.margin;
+      case "margin_pct":
         return b.margin_pct - a.margin_pct;
       case "revenue":
       default:
@@ -61,11 +76,7 @@ function transformData(
     }
   });
 
-  return sorted.slice(0, maxCustomers).map((customer) => ({
-    ...customer,
-    name: customer.customer_name,
-    marginColor: getMarginColor(customer.margin_pct),
-  }));
+  return sorted.slice(0, maxCustomers);
 }
 
 // Custom tooltip
@@ -78,9 +89,11 @@ interface CustomTooltipProps {
     dataKey: string;
     payload: {
       revenue: number;
-      cost: number;
-      profit: number;
+      costs: number;
+      margin: number;
       margin_pct: number;
+      order_count: number;
+      avg_order_value: number;
     };
   }>;
   label?: string;
@@ -91,13 +104,7 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
     return null;
   }
 
-  // Get full customer data from payload
-  const customerData = payload[0]?.payload as {
-    revenue: number;
-    cost: number;
-    profit: number;
-    margin_pct: number;
-  };
+  const customerData = payload[0]?.payload;
 
   return (
     <div className="bg-popover border border-border rounded-lg p-3 shadow-lg min-w-[200px]">
@@ -110,27 +117,39 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Cost:</span>
+          <span className="text-muted-foreground">Costs:</span>
           <span className="font-medium text-foreground">
-            {formatCurrency(customerData.cost)}
+            {formatCurrency(customerData.costs)}
           </span>
         </div>
         <div className="flex justify-between border-t border-border pt-1 mt-1">
-          <span className="text-muted-foreground">Profit:</span>
-          <span
-            className="font-medium"
-            style={{ color: getMarginColor(customerData.margin_pct) }}
-          >
-            {formatCurrency(customerData.profit)}
-          </span>
-        </div>
-        <div className="flex justify-between">
           <span className="text-muted-foreground">Margin:</span>
           <span
             className="font-medium"
             style={{ color: getMarginColor(customerData.margin_pct) }}
           >
+            {formatCurrency(customerData.margin)}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Margin %:</span>
+          <span
+            className="font-medium"
+            style={{ color: getMarginColor(customerData.margin_pct) }}
+          >
             {formatPercent(customerData.margin_pct)}
+          </span>
+        </div>
+        <div className="flex justify-between border-t border-border pt-1 mt-1">
+          <span className="text-muted-foreground">Orders:</span>
+          <span className="font-medium text-foreground">
+            {customerData.order_count}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Avg Order:</span>
+          <span className="font-medium text-foreground">
+            {formatCurrency(customerData.avg_order_value)}
           </span>
         </div>
       </div>
@@ -202,30 +221,34 @@ interface SummaryStatsProps {
 }
 
 function SummaryStats({ data }: SummaryStatsProps) {
+  const totalRevenue = parseFloat(data.total_revenue);
+  const totalMargin = parseFloat(data.total_margin);
+  const overallMarginPct = parseFloat(data.overall_margin_pct);
+
   return (
     <div className="flex flex-wrap justify-center gap-6 mb-4 text-sm">
       <div>
         <span className="text-muted-foreground">Total Revenue: </span>
         <span className="font-medium text-foreground">
-          {formatCurrency(data.total_revenue)}
+          {formatCurrency(totalRevenue)}
         </span>
       </div>
       <div>
-        <span className="text-muted-foreground">Gross Profit: </span>
+        <span className="text-muted-foreground">Gross Margin: </span>
         <span
           className="font-medium"
-          style={{ color: getMarginColor(data.gross_margin_pct) }}
+          style={{ color: getMarginColor(overallMarginPct) }}
         >
-          {formatCurrency(data.gross_profit)}
+          {formatCurrency(totalMargin)}
         </span>
       </div>
       <div>
-        <span className="text-muted-foreground">Margin: </span>
+        <span className="text-muted-foreground">Margin %: </span>
         <span
           className="font-medium"
-          style={{ color: getMarginColor(data.gross_margin_pct) }}
+          style={{ color: getMarginColor(overallMarginPct) }}
         >
-          {formatPercent(data.gross_margin_pct)}
+          {formatPercent(overallMarginPct)}
         </span>
       </div>
     </div>
@@ -245,7 +268,7 @@ export function ProfitabilityChart({
     return <ChartSkeleton className={className} />;
   }
 
-  if (!data || data.by_customer.length === 0) {
+  if (!data || data.customers.length === 0) {
     return <EmptyState className={className} />;
   }
 
@@ -258,7 +281,7 @@ export function ProfitabilityChart({
   const chartHeight = Math.max(300, chartData.length * 40 + 50);
 
   if (showStacked) {
-    // Stacked bar chart showing revenue vs cost
+    // Stacked bar chart showing costs vs margin (= revenue)
     return (
       <div className={className}>
         <SummaryStats data={data} />
@@ -296,15 +319,15 @@ export function ProfitabilityChart({
               )}
             />
             <Bar
-              dataKey="cost"
-              name="Cost"
+              dataKey="costs"
+              name="Costs"
               stackId="a"
               fill={CHART_COLORS.cost}
               radius={[0, 0, 0, 0]}
             />
             <Bar
-              dataKey="profit"
-              name="Profit"
+              dataKey="margin"
+              name="Margin"
               stackId="a"
               fill={CHART_COLORS.profit}
               radius={[0, 4, 4, 0]}

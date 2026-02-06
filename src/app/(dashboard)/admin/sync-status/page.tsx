@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   RefreshCw,
   CheckCircle,
@@ -10,6 +11,11 @@ import {
   AlertTriangle,
   Play,
   AlertCircle,
+  Users,
+  Package,
+  ShoppingCart,
+  Boxes,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +35,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatDateTime, formatNumber } from "@/lib/format";
@@ -37,8 +50,15 @@ import {
   useSyncStatus,
   useTriggerWmsSync,
   useTriggerTechShipSync,
+  useTriggerWmsSyncAll,
+  useTriggerWmsSyncCustomers,
+  useTriggerWmsSyncOrders,
+  useTriggerWmsSyncInventory,
+  useTriggerWmsSyncProducts,
+  useTriggerWmsSyncProductsAll,
   type SyncStatus,
 } from "@/hooks/use-admin";
+import { useCustomers } from "@/hooks/use-customers";
 
 /**
  * Sync Status Page
@@ -62,6 +82,46 @@ export default function SyncStatusPage() {
   // Sync trigger mutations
   const wmsSyncMutation = useTriggerWmsSync();
   const techshipSyncMutation = useTriggerTechShipSync();
+
+  // Granular WMS sync mutations
+  const wmsSyncAllMutation = useTriggerWmsSyncAll();
+  const wmsSyncCustomersMutation = useTriggerWmsSyncCustomers();
+  const wmsSyncOrdersMutation = useTriggerWmsSyncOrders();
+  const wmsSyncInventoryMutation = useTriggerWmsSyncInventory();
+  const wmsSyncProductsMutation = useTriggerWmsSyncProducts();
+  const wmsSyncProductsAllMutation = useTriggerWmsSyncProductsAll();
+
+  // Customer selector state and data for granular sync
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const { data: customersData, isLoading: isLoadingCustomers } = useCustomers({
+    per_page: 100,
+    status: "active",
+  });
+
+  const isAnyGranularSyncRunning =
+    wmsSyncAllMutation.isPending ||
+    wmsSyncCustomersMutation.isPending ||
+    wmsSyncOrdersMutation.isPending ||
+    wmsSyncInventoryMutation.isPending ||
+    wmsSyncProductsMutation.isPending ||
+    wmsSyncProductsAllMutation.isPending;
+
+  // Granular sync handlers
+  const handleGranularSync = async (
+    label: string,
+    mutateAsync: () => Promise<unknown>
+  ) => {
+    try {
+      const result = (await mutateAsync()) as { message?: string };
+      toast.success(`${label} started`, {
+        description: result.message || "Sync job has been queued",
+      });
+    } catch (err) {
+      toast.error(`${label} failed`, {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  };
 
   const handleWmsSync = async () => {
     try {
@@ -361,6 +421,180 @@ export default function SyncStatusPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Granular WMS Sync */}
+      <Card data-testid="granular-sync-card">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-blue-500" />
+            <CardTitle>Granular WMS Sync</CardTitle>
+          </div>
+          <CardDescription>
+            Trigger targeted sync operations for specific WMS data types
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Customer Selector */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none">
+              Select Customer
+            </label>
+            <Select
+              value={selectedCustomerId}
+              onValueChange={setSelectedCustomerId}
+              disabled={isLoadingCustomers}
+            >
+              <SelectTrigger className="w-full md:w-[320px]" data-testid="granular-sync-customer-select">
+                <SelectValue placeholder={isLoadingCustomers ? "Loading customers..." : "Choose a customer..."} />
+              </SelectTrigger>
+              <SelectContent>
+                {customersData?.data.map((customer) => (
+                  <SelectItem key={customer.id} value={String(customer.id)}>
+                    {customer.name} ({customer.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Required for Orders, Inventory, and Products sync
+            </p>
+          </div>
+
+          {/* Sync Buttons Grid */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Sync All */}
+            <Button
+              variant="default"
+              className="w-full justify-start gap-2"
+              onClick={() =>
+                handleGranularSync("Full WMS sync", () =>
+                  wmsSyncAllMutation.mutateAsync()
+                )
+              }
+              disabled={isAnyGranularSyncRunning}
+              data-testid="granular-sync-all-btn"
+            >
+              {wmsSyncAllMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Layers className="h-4 w-4" />
+              )}
+              Sync All
+            </Button>
+
+            {/* Sync Customers */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() =>
+                handleGranularSync("WMS customer sync", () =>
+                  wmsSyncCustomersMutation.mutateAsync()
+                )
+              }
+              disabled={isAnyGranularSyncRunning}
+              data-testid="granular-sync-customers-btn"
+            >
+              {wmsSyncCustomersMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Users className="h-4 w-4" />
+              )}
+              Sync Customers
+            </Button>
+
+            {/* Sync Orders (requires customer) */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() =>
+                handleGranularSync("WMS order sync", () =>
+                  wmsSyncOrdersMutation.mutateAsync(selectedCustomerId)
+                )
+              }
+              disabled={isAnyGranularSyncRunning || !selectedCustomerId}
+              data-testid="granular-sync-orders-btn"
+            >
+              {wmsSyncOrdersMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShoppingCart className="h-4 w-4" />
+              )}
+              Sync Orders
+            </Button>
+
+            {/* Sync Inventory (requires customer) */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() =>
+                handleGranularSync("WMS inventory sync", () =>
+                  wmsSyncInventoryMutation.mutateAsync(selectedCustomerId)
+                )
+              }
+              disabled={isAnyGranularSyncRunning || !selectedCustomerId}
+              data-testid="granular-sync-inventory-btn"
+            >
+              {wmsSyncInventoryMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Boxes className="h-4 w-4" />
+              )}
+              Sync Inventory
+            </Button>
+
+            {/* Sync Products (requires customer) */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() =>
+                handleGranularSync("WMS product sync", () =>
+                  wmsSyncProductsMutation.mutateAsync(selectedCustomerId)
+                )
+              }
+              disabled={isAnyGranularSyncRunning || !selectedCustomerId}
+              data-testid="granular-sync-products-btn"
+            >
+              {wmsSyncProductsMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Package className="h-4 w-4" />
+              )}
+              Sync Products
+            </Button>
+
+            {/* Sync All Products */}
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={() =>
+                handleGranularSync("WMS all-products sync", () =>
+                  wmsSyncProductsAllMutation.mutateAsync()
+                )
+              }
+              disabled={isAnyGranularSyncRunning}
+              data-testid="granular-sync-products-all-btn"
+            >
+              {wmsSyncProductsAllMutation.isPending ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Package className="h-4 w-4" />
+              )}
+              Sync All Products
+            </Button>
+          </div>
+
+          {/* Running indicator */}
+          {isAnyGranularSyncRunning && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                <span>A granular sync operation is in progress...</span>
+              </div>
+              <Progress value={undefined} className="animate-pulse" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Sync Schedule Info */}
       <Card>
