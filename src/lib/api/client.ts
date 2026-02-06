@@ -80,7 +80,14 @@ async function getAuthToken(): Promise<string | null> {
     const supabase = createClient();
     const {
       data: { session },
+      error,
     } = await supabase.auth.getSession();
+    if (error) {
+      if (error.name === "AuthSessionMissingError") {
+        return null;
+      }
+      console.error("Failed to get auth token:", error);
+    }
     return session?.access_token ?? null;
   } catch (error) {
     console.error("Failed to get auth token:", error);
@@ -97,6 +104,9 @@ async function refreshAuthToken(): Promise<string | null> {
     const { data, error } = await supabase.auth.refreshSession();
 
     if (error) {
+      if (error.name === "AuthSessionMissingError") {
+        return null;
+      }
       console.error("Token refresh failed:", error);
       return null;
     }

@@ -89,9 +89,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (!session) {
+      if (sessionError || !session) {
         useAuthStore.getState().setLoading(false);
         clearErrorUser();
         return;
