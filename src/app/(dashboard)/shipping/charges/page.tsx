@@ -35,6 +35,7 @@ import {
 import type { ShippingCharge } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
 
 export default function ShippingChargesPage() {
   const [params, setParams] = useState<ShippingChargesParams>({
@@ -216,35 +217,52 @@ export default function ShippingChargesPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by order, customer, or tracking..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            className="pl-9"
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by order, customer, or tracking..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              className="pl-9"
+            />
+          </div>
+          <Select
+            value={params.status ?? "all"}
+            onValueChange={handleStatusFilter}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="billed">Billed</SelectItem>
+              <SelectItem value="disputed">Disputed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={handleSearch}>
+            <Search className="mr-2 h-4 w-4" />
+            Search
+          </Button>
         </div>
-        <Select
-          value={params.status ?? "all"}
-          onValueChange={handleStatusFilter}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="billed">Billed</SelectItem>
-            <SelectItem value="disputed">Disputed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={handleSearch}>
-          <Search className="mr-2 h-4 w-4" />
-          Search
-        </Button>
+        <DateRangeFilter
+          inline
+          value={{
+            dateFrom: params.date_from ?? "",
+            dateTo: params.date_to ?? "",
+          }}
+          onChange={(range: DateRange) => {
+            setParams((prev) => ({
+              ...prev,
+              date_from: range.dateFrom || undefined,
+              date_to: range.dateTo || undefined,
+              page: 1,
+            }));
+          }}
+        />
       </div>
 
       {/* Data Table */}
@@ -263,6 +281,18 @@ export default function ShippingChargesPage() {
             per_page: pageSize,
           }));
         }}
+        exportFilename="shipping-charges-export"
+        exportColumns={[
+          { key: "order_id", label: "Order ID" },
+          { key: "customer_name", label: "Customer" },
+          { key: "carrier_name", label: "Carrier" },
+          { key: "tracking_number", label: "Tracking #" },
+          { key: "ship_date", label: "Ship Date" },
+          { key: "charge_amount", label: "Charge ($)" },
+          { key: "markup_amount", label: "Markup ($)" },
+          { key: "total_amount", label: "Total ($)" },
+          { key: "status", label: "Status" },
+        ]}
       />
     </div>
   );

@@ -341,6 +341,17 @@ export default function InventoryPage() {
             pageIndex={page - 1}
             pageSize={20}
             onPaginationChange={({ pageIndex }) => setPage(pageIndex + 1)}
+            exportFilename="inventory-export"
+            exportColumns={[
+              { key: "sku", label: "SKU" },
+              { key: "description", label: "Product" },
+              { key: "customer_name", label: "Customer" },
+              { key: "location", label: "Location" },
+              { key: "quantity_on_hand", label: "On Hand" },
+              { key: "quantity_available", label: "Available" },
+              { key: "quantity_allocated", label: "Allocated" },
+              { key: "last_updated", label: "Last Updated" },
+            ]}
           />
         </CardContent>
       </Card>

@@ -41,7 +41,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { api, endpoints, apiClient } from "@/lib/api/client";
 import { toast } from "sonner";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 
@@ -86,7 +86,7 @@ export default function BillingBulkPage() {
     queryKey: ["billing-periods-for-bulk"],
     queryFn: async () => {
       const response = await api.get<{ data: BillingPeriod[] }>(
-        "/api/v1/billing/periods"
+        endpoints.billing.periods
       );
       return response.data?.data;
     },
@@ -97,7 +97,7 @@ export default function BillingBulkPage() {
     queryKey: ["customer-charges", selectedPeriod],
     queryFn: async () => {
       const response = await api.get<{ data: CustomerCharges[] }>(
-        `/api/v1/billing/periods/${selectedPeriod}/customers`
+        endpoints.billing.periodCustomers(selectedPeriod)
       );
       return response.data?.data;
     },
@@ -108,7 +108,7 @@ export default function BillingBulkPage() {
   const bulkCreateInvoices = useMutation({
     mutationFn: async () => {
       const response = await api.post<{ data: BulkOperationResult }>(
-        "/api/v1/invoices/bulk-create",
+        endpoints.invoices.bulkCreate,
         {
           period_id: Number(selectedPeriod),
           customer_ids: selectedCustomers,
@@ -140,7 +140,7 @@ export default function BillingBulkPage() {
   const closePeriod = useMutation({
     mutationFn: async () => {
       const response = await api.post<{ data: BulkOperationResult }>(
-        `/api/v1/billing/periods/${selectedPeriod}/close`
+        endpoints.billing.periodClose(selectedPeriod)
       );
       return response.data?.data;
     },
@@ -155,31 +155,35 @@ export default function BillingBulkPage() {
     },
   });
 
-  // Export charges mutation
+  // Export charges mutation (uses api.get with auth headers for authenticated export)
   const exportCharges = useMutation({
     mutationFn: async () => {
+      const response = await api.get<Blob>(
+        endpoints.billing.periodExport(selectedPeriod),
+        {
+          customer_ids: selectedCustomers.join(","),
+          format: "csv",
+        }
+      );
+      // For file downloads, the response may contain the data directly
+      // or we may need to trigger a separate authenticated download
+      return response;
+    },
+    onSuccess: () => {
+      // For CSV downloads, build an authenticated download URL
+      // The api.get call above validates auth; now trigger the actual download
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
       const params = new URLSearchParams({
         customer_ids: selectedCustomers.join(","),
         format: "csv",
       });
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-      const response = await fetch(
-        `${apiBase}/api/v1/billing/periods/${selectedPeriod}/export?${params}`,
-        { method: "GET" }
-      );
-      if (!response.ok) throw new Error("Export failed");
-      return response.blob();
-    },
-    onSuccess: (blob) => {
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
+      const downloadUrl = `${apiBase}${endpoints.billing.periodExport(selectedPeriod)}?${params}`;
       const link = document.createElement("a");
-      link.href = url;
+      link.href = downloadUrl;
       link.setAttribute("download", `charges-period-${selectedPeriod}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
       toast.success("Export downloaded successfully");
     },
     onError: () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -12,6 +12,8 @@ import {
   Filter,
   FileStack,
   Mail,
+  CheckCircle,
+  Ban,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
@@ -36,9 +38,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { DataTable } from "@/components/tables/data-table";
+import { DataTable, type BulkAction } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
-import { useInvoices, useInvoicePdf, useSendInvoice } from "@/hooks/use-invoices";
+import {
+  useInvoices,
+  useInvoicePdf,
+  useSendInvoice,
+  useBulkSendInvoices,
+  useUpdateInvoice,
+  useInvalidateInvoices,
+} from "@/hooks/use-invoices";
+import { useQueryClient } from "@tanstack/react-query";
+import { api, endpoints } from "@/lib/api/client";
 import { formatDate, formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 import type { Invoice } from "@/types";
@@ -203,6 +214,122 @@ export default function InvoicesPage() {
     ...filters,
   });
 
+  const bulkSend = useBulkSendInvoices();
+  const queryClient = useQueryClient();
+  const { invalidateLists } = useInvalidateInvoices();
+
+  const handleBulkSend = useCallback(
+    async (invoices: Invoice[]) => {
+      const sendable = invoices.filter(
+        (inv) => inv.status !== "sent" && inv.status !== "paid" && inv.status !== "void"
+      );
+      if (sendable.length === 0) {
+        toast.error("No eligible invoices to send", {
+          description: "Selected invoices are already sent, paid, or void.",
+        });
+        return;
+      }
+      toast.info(`Sending ${sendable.length} invoice(s)...`);
+      try {
+        const result = await bulkSend.mutateAsync({
+          invoice_ids: sendable.map((inv) => inv.id),
+        });
+        toast.success(`${result.sent} invoice(s) sent successfully`, {
+          description: result.errors.length > 0
+            ? `${result.errors.length} error(s) occurred`
+            : undefined,
+        });
+      } catch {
+        toast.error("Failed to send invoices");
+      }
+    },
+    [bulkSend]
+  );
+
+  const handleBulkMarkPaid = useCallback(
+    async (invoices: Invoice[]) => {
+      const eligible = invoices.filter(
+        (inv) => inv.status === "sent" || inv.status === "overdue"
+      );
+      if (eligible.length === 0) {
+        toast.error("No eligible invoices", {
+          description: "Only sent or overdue invoices can be marked as paid.",
+        });
+        return;
+      }
+      toast.info(`Marking ${eligible.length} invoice(s) as paid...`);
+      let successCount = 0;
+      let errorCount = 0;
+      for (const inv of eligible) {
+        try {
+          await api.put(endpoints.invoices.detail(inv.id), { status: "paid" });
+          successCount++;
+        } catch {
+          errorCount++;
+        }
+      }
+      invalidateLists();
+      toast.success(`${successCount} invoice(s) marked as paid`, {
+        description: errorCount > 0 ? `${errorCount} failed` : undefined,
+      });
+    },
+    [invalidateLists]
+  );
+
+  const handleBulkVoid = useCallback(
+    async (invoices: Invoice[]) => {
+      const eligible = invoices.filter(
+        (inv) => inv.status !== "void" && inv.status !== "paid"
+      );
+      if (eligible.length === 0) {
+        toast.error("No eligible invoices", {
+          description: "Paid or already voided invoices cannot be voided.",
+        });
+        return;
+      }
+      toast.info(`Voiding ${eligible.length} invoice(s)...`);
+      let successCount = 0;
+      let errorCount = 0;
+      for (const inv of eligible) {
+        try {
+          await api.post(`${endpoints.invoices.detail(inv.id)}/void`, {
+            reason: "Bulk void action",
+          });
+          successCount++;
+        } catch {
+          errorCount++;
+        }
+      }
+      invalidateLists();
+      toast.success(`${successCount} invoice(s) voided`, {
+        description: errorCount > 0 ? `${errorCount} failed` : undefined,
+      });
+    },
+    [invalidateLists]
+  );
+
+  const bulkActions: BulkAction<Invoice>[] = useMemo(
+    () => [
+      {
+        label: "Send Selected",
+        icon: Send,
+        onClick: handleBulkSend,
+      },
+      {
+        label: "Mark as Paid",
+        icon: CheckCircle,
+        onClick: handleBulkMarkPaid,
+      },
+      {
+        label: "Void Selected",
+        icon: Ban,
+        onClick: handleBulkVoid,
+        variant: "destructive" as const,
+      },
+    ],
+    [handleBulkSend, handleBulkMarkPaid, handleBulkVoid]
+  );
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -292,6 +419,19 @@ export default function InvoicesPage() {
         pageSize={pagination.pageSize}
         onPaginationChange={setPagination}
         manualPagination
+        enableRowSelection
+        bulkActions={bulkActions}
+        exportFilename="invoices-export"
+        exportColumns={[
+          { key: "invoice_number", label: "Invoice #" },
+          { key: "customer.name", label: "Customer" },
+          { key: "status", label: "Status" },
+          { key: "issue_date", label: "Issue Date" },
+          { key: "due_date", label: "Due Date" },
+          { key: "subtotal", label: "Subtotal" },
+          { key: "tax", label: "Tax" },
+          { key: "total", label: "Total" },
+        ]}
       />
     </div>
   );

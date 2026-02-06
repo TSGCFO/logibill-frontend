@@ -309,10 +309,21 @@ export const endpoints = {
     rules: (customerId: number | string) =>
       `/api/v1/billing/rules/${customerId}`,
     sandbox: "/api/v1/billing/sandbox",
+    dualRun: "/api/v1/billing/dual-run",
+    dualRunDetail: (id: number | string) => `/api/v1/billing/dual-run/${id}`,
+    generatePreview: "/api/v1/billing/generate/preview",
+    generate: "/api/v1/billing/generate",
+    unbilledCustomers: "/api/v1/billing/unbilled-customers",
+    periodCustomers: (id: number | string) =>
+      `/api/v1/billing/periods/${id}/customers`,
+    periodExport: (id: number | string) =>
+      `/api/v1/billing/periods/${id}/export`,
     audit: "/api/v1/billing/audit",
     auditApprove: (id: number | string) =>
       `/api/v1/billing/audit/${id}/approve`,
     auditDelete: (id: number | string) => `/api/v1/billing/audit/${id}`,
+    cadence: "/api/v1/billing/cadence",
+    cadenceDetail: (id: number | string) => `/api/v1/billing/cadence/${id}`,
   },
 
   // Accrual
@@ -337,6 +348,7 @@ export const endpoints = {
   // Services
   services: {
     types: "/api/v1/services/types",
+    typeDetail: (id: number | string) => `/api/v1/services/types/${id}`,
     rates: "/api/v1/services/rates",
     rateDetail: (id: number | string) => `/api/v1/services/rates/${id}`,
     templates: "/api/v1/services/rates/templates",

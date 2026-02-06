@@ -4,17 +4,14 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Search,
   Download,
   ArrowUpRight,
   ArrowDownRight,
   Clock,
   RefreshCw,
-  Loader2,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -35,6 +32,7 @@ import { DataTableColumnHeader } from "@/components/tables/data-table-column-hea
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { useInventoryTransactions } from "@/hooks/use-inventory";
 import { useCustomers } from "@/hooks/use-customers";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
 import type { InventoryTransaction } from "@/types";
 
 function getTypeIcon(type: string) {
@@ -282,24 +280,16 @@ export default function InventoryTransactionsPage() {
                 <SelectItem value="transfer">Transfer</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              type="date"
-              placeholder="From date"
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
-                setPage(1);
-              }}
-            />
-            <Input
-              type="date"
-              placeholder="To date"
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value);
-                setPage(1);
-              }}
-            />
+            <div className="md:col-span-2">
+              <DateRangeFilter
+                value={{ dateFrom, dateTo }}
+                onChange={(range: DateRange) => {
+                  setDateFrom(range.dateFrom);
+                  setDateTo(range.dateTo);
+                  setPage(1);
+                }}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

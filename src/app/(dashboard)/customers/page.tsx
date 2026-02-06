@@ -211,6 +211,15 @@ export default function CustomersPage() {
         pageSize={pagination.pageSize}
         onPaginationChange={setPagination}
         manualPagination
+        exportFilename="customers-export"
+        exportColumns={[
+          { key: "name", label: "Name" },
+          { key: "code", label: "Code" },
+          { key: "email", label: "Email" },
+          { key: "phone", label: "Phone" },
+          { key: "status", label: "Status" },
+          { key: "payment_terms", label: "Payment Terms" },
+        ]}
       />
     </div>
   );

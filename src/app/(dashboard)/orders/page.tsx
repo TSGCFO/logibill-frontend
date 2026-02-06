@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { MoreHorizontal, Eye, Filter } from "lucide-react";
+import { MoreHorizontal, Eye, Filter, FileDown, Receipt } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -259,6 +259,18 @@ export default function OrdersPage() {
         pageSize={pagination.pageSize}
         onPaginationChange={setPagination}
         manualPagination
+        exportFilename="orders-export"
+        exportColumns={[
+          { key: "wms_order_id", label: "Order ID" },
+          { key: "customer.name", label: "Customer" },
+          { key: "order_type", label: "Type" },
+          { key: "status", label: "Status" },
+          { key: "items_count", label: "Items" },
+          { key: "packages_count", label: "Packages" },
+          { key: "total_picks", label: "Picks" },
+          { key: "ship_date", label: "Ship Date" },
+          { key: "created_at", label: "Created" },
+        ]}
       />
     </div>
   );

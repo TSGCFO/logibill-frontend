@@ -9,6 +9,9 @@ import type {
   DashboardMetrics,
   PaginatedResponse,
   BillingAuditCharge,
+  BillingCadenceConfig,
+  ServiceCategory,
+  BillingCadenceType,
 } from "@/types";
 
 // ============================================================================
@@ -29,6 +32,11 @@ export const billingKeys = {
   sandbox: () => [...billingKeys.all, "sandbox"] as const,
   audit: (params?: BillingAuditParams) =>
     [...billingKeys.all, "audit", params] as const,
+  dualRun: () => [...billingKeys.all, "dual-run"] as const,
+  dualRunList: (params: DualRunComparisonsParams) =>
+    [...billingKeys.dualRun(), "list", params] as const,
+  dualRunDetail: (id: number | string) =>
+    [...billingKeys.dualRun(), "detail", id] as const,
 };
 
 export const accrualKeys = {
@@ -132,6 +140,84 @@ export interface BillingAuditParams {
   date_to?: string;
   sort_by?: string;
   sort_order?: "asc" | "desc";
+}
+
+export interface DualRunComparisonsParams {
+  page?: number;
+  per_page?: number;
+  customer_id?: number | string;
+}
+
+export interface DualRunComparison {
+  id: number;
+  comparison_date: string;
+  customer_id: number;
+  customer_name: string | null;
+  match_status: "perfect_match" | "minor_variance" | "major_variance";
+  orders_compared: number;
+  old_system_total: string;
+  new_system_total: string;
+  variance_amount: string;
+  variance_percentage: string;
+  run_at: string;
+  run_by: string | null;
+}
+
+export interface DualRunCharge {
+  order_id: number;
+  service_type: string;
+  subcategory: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+}
+
+export interface DualRunDifference {
+  order_id: number;
+  subcategory: string;
+  old_amount: number;
+  new_amount: number;
+  difference: number;
+  match: boolean;
+}
+
+export interface DualRunDetail {
+  id: number;
+  comparison_date: string;
+  customer_id: number;
+  customer_name: string | null;
+  match_status: "perfect_match" | "minor_variance" | "major_variance";
+  orders_compared: number;
+  order_ids: number[];
+  old_charges: DualRunCharge[];
+  new_charges: DualRunCharge[];
+  differences: DualRunDifference[];
+  total_old: string;
+  total_new: string;
+  delta: string;
+  delta_percentage: string;
+  period_start: string | null;
+  period_end: string | null;
+  run_at: string;
+  run_by: string | null;
+}
+
+export interface StartDualRunData {
+  customer_id: number;
+  period_id?: number;
+  order_ids?: number[];
+}
+
+export interface StartDualRunResult {
+  comparison_id: number;
+  customer_id: number;
+  customer_name: string;
+  match_status: string;
+  orders_compared: number;
+  old_system_total: string;
+  new_system_total: string;
+  variance_amount: string;
+  variance_percentage: string;
 }
 
 export interface ClosePeriodResult {
@@ -429,6 +515,88 @@ export function useDeleteBillingRule(customerId: number | string) {
 }
 
 // ============================================================================
+// Billing Generation Hooks
+// ============================================================================
+
+export interface GeneratePreviewParams {
+  period_id?: number | null;
+  customer_ids: number[];
+}
+
+export interface GeneratePreviewResult {
+  customers: {
+    id: number;
+    name: string;
+    order_count: number;
+    estimated_charges: number;
+  }[];
+  total_orders: number;
+  total_estimated: number;
+}
+
+export interface GenerateBillingResult {
+  success: boolean;
+  customers_processed: number;
+  charges_created: number;
+  total_amount: number;
+  errors: { customer_id: number; customer_name: string; error: string }[];
+}
+
+/**
+ * Preview what charges would be generated for selected customers
+ */
+export function useGeneratePreview(params: GeneratePreviewParams) {
+  return useQuery({
+    queryKey: [...billingKeys.all, "generate-preview", params],
+    queryFn: async (): Promise<GeneratePreviewResult> => {
+      const response = await api.post<GeneratePreviewResult>(
+        endpoints.billing.generatePreview,
+        {
+          period_id: params.period_id,
+          customer_ids: params.customer_ids,
+        }
+      );
+      if (!response.data) {
+        throw new Error("Failed to fetch generation preview");
+      }
+      return response.data;
+    },
+    enabled: params.customer_ids.length > 0,
+  });
+}
+
+/**
+ * Generate billing charges for selected customers
+ */
+export function useGenerateBilling() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (
+      params: GeneratePreviewParams
+    ): Promise<GenerateBillingResult> => {
+      const response = await api.post<GenerateBillingResult>(
+        endpoints.billing.generate,
+        {
+          period_id: params.period_id,
+          customer_ids: params.customer_ids,
+        }
+      );
+      if (!response.data) {
+        throw new Error("Failed to generate billing");
+      }
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate billing-related queries
+      queryClient.invalidateQueries({ queryKey: billingKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["customers-unbilled"] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+    },
+  });
+}
+
+// ============================================================================
 // Billing Sandbox Hook
 // ============================================================================
 
@@ -685,6 +853,94 @@ export function useDeleteBillingCharge() {
 }
 
 // ============================================================================
+// Dual-Run Comparison Query Hooks
+// ============================================================================
+
+/**
+ * Fetch paginated list of dual-run comparisons with optional customer filter
+ */
+export function useDualRunComparisons(params: DualRunComparisonsParams = {}) {
+  return useQuery({
+    queryKey: billingKeys.dualRunList(params),
+    queryFn: async (): Promise<PaginatedResponse<DualRunComparison>> => {
+      const response = await api.get<DualRunComparison[]>(
+        endpoints.billing.dualRun,
+        {
+          page: params.page,
+          per_page: params.per_page,
+          customer_id: params.customer_id,
+        }
+      );
+
+      return {
+        data: response.data ?? [],
+        meta: response.meta ?? {
+          page: params.page ?? 1,
+          per_page: params.per_page ?? 20,
+          total: 0,
+          total_pages: 0,
+        },
+      };
+    },
+    staleTime: 30000, // 30 seconds
+  });
+}
+
+/**
+ * Fetch a single dual-run comparison by ID with full charge details
+ */
+export function useDualRunDetail(id: number | string) {
+  return useQuery({
+    queryKey: billingKeys.dualRunDetail(id),
+    queryFn: async (): Promise<DualRunDetail> => {
+      const response = await api.get<DualRunDetail>(
+        endpoints.billing.dualRunDetail(id)
+      );
+      if (!response.data) {
+        throw new Error("Dual-run comparison not found");
+      }
+      return response.data;
+    },
+    enabled: !!id,
+    staleTime: 60000, // 1 minute
+  });
+}
+
+// ============================================================================
+// Dual-Run Comparison Mutation Hooks
+// ============================================================================
+
+/**
+ * Start a new dual-run comparison
+ */
+export function useStartDualRun() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: StartDualRunData): Promise<StartDualRunResult> => {
+      const response = await api.post<StartDualRunResult>(
+        endpoints.billing.dualRun,
+        data
+      );
+      if (!response.data) {
+        throw new Error("Failed to start dual-run comparison");
+      }
+      return response.data;
+    },
+    onSuccess: (result) => {
+      // Invalidate dual-run list so it refreshes
+      queryClient.invalidateQueries({ queryKey: billingKeys.dualRun() });
+
+      // Set the new comparison in cache
+      queryClient.setQueryData(
+        billingKeys.dualRunDetail(result.comparison_id),
+        undefined // Will be fetched on navigation
+      );
+    },
+  });
+}
+
+// ============================================================================
 // Utility Hooks
 // ============================================================================
 
@@ -769,5 +1025,9 @@ export function useInvalidateBilling() {
       queryClient.invalidateQueries({ queryKey: accrualKeys.all }),
     invalidateDashboard: () =>
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+    invalidateDualRun: () =>
+      queryClient.invalidateQueries({ queryKey: billingKeys.dualRun() }),
+    invalidateDualRunDetail: (id: number | string) =>
+      queryClient.invalidateQueries({ queryKey: billingKeys.dualRunDetail(id) }),
   };
 }

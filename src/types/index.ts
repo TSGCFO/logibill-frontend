@@ -38,6 +38,21 @@ export interface CustomerBillingConfig {
   updated_at: string;
 }
 
+export type ServiceCategory = "fulfillment" | "storage" | "postage" | "materials" | "receiving" | "returns";
+export type BillingCadenceType = "weekly" | "semi_monthly" | "monthly" | "quarterly" | "manual";
+
+export interface BillingCadenceConfig {
+  id: number;
+  customer_id: number;
+  customer_name?: string;
+  service_category: ServiceCategory;
+  cadence: BillingCadenceType;
+  semi_monthly_cutoff_day: number;
+  weekly_close_day: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 // Order Types
 export interface Order {
   id: number;
@@ -202,10 +217,18 @@ export interface PackagingRateCatalog {
 export interface ServiceType {
   id: number;
   name: string;
-  code: string;
   description: string | null;
   category: string;
+  subcategory: string | null;
+  unit: string;
+  base_rate: string | null;
+  minimum_charge: string | null;
+  auto_generate: boolean;
+  auto_generate_source: string | null;
   is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ServiceRate {
@@ -374,6 +397,21 @@ export interface ExportReportResponse {
   report_type: string;
   generated_at: string;
   expires_at: string | null;
+}
+
+// Audit Trail Types
+export type AuditAction = "create" | "update" | "delete";
+
+export interface AuditEntry {
+  id: string;
+  timestamp: string;
+  user_email: string;
+  user_id: string | null;
+  action: AuditAction;
+  resource_type: string;
+  resource_id: string;
+  details: Record<string, unknown> | null;
+  ip_address: string | null;
 }
 
 // Activity Types

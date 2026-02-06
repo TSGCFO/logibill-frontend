@@ -8,13 +8,21 @@ import {
   Trash2,
   DollarSign,
   FileText,
+  FileSpreadsheet,
   AlertCircle,
   Loader2,
   ClipboardList,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Card,
   CardContent,
@@ -57,6 +65,8 @@ import {
 } from "@/hooks/use-billing";
 import type { BillingAuditParams } from "@/hooks/use-billing";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { exportToCSV, exportToExcel } from "@/lib/export";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
 
 export default function BillingAuditPage() {
   // Filter state
@@ -173,10 +183,75 @@ export default function BillingAuditPage() {
             Review and approve generated charges before invoicing
           </p>
         </div>
-        <Button variant="outline" disabled>
-          <Download className="mr-2 h-4 w-4" />
-          Export
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" disabled={charges.length === 0}>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+              <ChevronDown className="ml-2 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => {
+                const exportData = charges.map((c) => ({
+                  customer_name: c.customer_name,
+                  service_type_name: c.service_type_name,
+                  description: c.description,
+                  quantity: c.quantity,
+                  rate: c.rate,
+                  amount: c.amount,
+                  order_id: c.order_id,
+                  service_date: c.service_date,
+                  status: c.status,
+                }));
+                exportToCSV(exportData, "billing-audit-export", [
+                  { key: "customer_name", label: "Customer" },
+                  { key: "service_type_name", label: "Service Type" },
+                  { key: "description", label: "Description" },
+                  { key: "quantity", label: "Quantity" },
+                  { key: "rate", label: "Rate" },
+                  { key: "amount", label: "Amount" },
+                  { key: "order_id", label: "Order" },
+                  { key: "service_date", label: "Date" },
+                  { key: "status", label: "Status" },
+                ]);
+              }}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                const exportData = charges.map((c) => ({
+                  customer_name: c.customer_name,
+                  service_type_name: c.service_type_name,
+                  description: c.description,
+                  quantity: c.quantity,
+                  rate: c.rate,
+                  amount: c.amount,
+                  order_id: c.order_id,
+                  service_date: c.service_date,
+                  status: c.status,
+                }));
+                exportToExcel(exportData, "billing-audit-export", [
+                  { key: "customer_name", label: "Customer" },
+                  { key: "service_type_name", label: "Service Type" },
+                  { key: "description", label: "Description" },
+                  { key: "quantity", label: "Quantity" },
+                  { key: "rate", label: "Rate" },
+                  { key: "amount", label: "Amount" },
+                  { key: "order_id", label: "Order" },
+                  { key: "service_date", label: "Date" },
+                  { key: "status", label: "Status" },
+                ]);
+              }}
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Export as Excel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Summary Stat Cards */}
@@ -227,7 +302,7 @@ export default function BillingAuditPage() {
           <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-4">
             <Select
               value={customerFilter}
               onValueChange={(value) => {
@@ -259,24 +334,16 @@ export default function BillingAuditPage() {
                 }}
               />
             </div>
-            <Input
-              type="date"
-              placeholder="From date"
-              value={dateFrom}
-              onChange={(e) => {
-                setDateFrom(e.target.value);
-                handleFilterChange();
-              }}
-            />
-            <Input
-              type="date"
-              placeholder="To date"
-              value={dateTo}
-              onChange={(e) => {
-                setDateTo(e.target.value);
-                handleFilterChange();
-              }}
-            />
+            <div className="md:col-span-2">
+              <DateRangeFilter
+                value={{ dateFrom, dateTo }}
+                onChange={(range: DateRange) => {
+                  setDateFrom(range.dateFrom);
+                  setDateTo(range.dateTo);
+                  handleFilterChange();
+                }}
+              />
+            </div>
             <Button
               variant="outline"
               onClick={() => {

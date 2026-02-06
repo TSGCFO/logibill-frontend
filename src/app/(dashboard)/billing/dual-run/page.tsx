@@ -3,12 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
   CheckCircle,
   XCircle,
   AlertTriangle,
   Clock,
-  RefreshCw,
   Play,
   Loader2,
   MoreHorizontal,
@@ -52,40 +50,16 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
 import { useCustomers } from "@/hooks/use-customers";
+import {
+  useDualRunComparisons,
+  useStartDualRun,
+  type DualRunComparison,
+} from "@/hooks/use-billing";
 import { formatDateTime, formatCurrency, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
 
-interface DualRun {
-  id: string;
-  started_at: string;
-  completed_at?: string;
-  status: "running" | "completed" | "failed";
-  customer_id?: number;
-  customer_name?: string;
-  orders_compared: number;
-  matches: number;
-  mismatches: number;
-  old_total: number;
-  new_total: number;
-  variance: number;
-  variance_percent: number;
-}
-
-interface DualRunStats {
-  total_runs: number;
-  successful_runs: number;
-  failed_runs: number;
-  total_orders_compared: number;
-  total_matches: number;
-  total_mismatches: number;
-  match_rate: number;
-}
-
 export default function DualRunComparisonPage() {
-  const queryClient = useQueryClient();
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("all");
   const [pagination, setPagination] = useState({
     pageIndex: 0,
@@ -95,62 +69,55 @@ export default function DualRunComparisonPage() {
   const { data: customersData } = useCustomers();
   const customers = customersData?.data ?? [];
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["dual-run-stats"],
-    queryFn: async () => {
-      const response = await api.get<{ data: DualRunStats }>(
-        "/api/v1/billing/dual-run/stats"
-      );
-      return response.data?.data;
-    },
-  });
+  const { data: comparisonsData, isLoading: comparisonsLoading } =
+    useDualRunComparisons({
+      page: pagination.pageIndex + 1,
+      per_page: pagination.pageSize,
+      customer_id:
+        selectedCustomerId !== "all" ? selectedCustomerId : undefined,
+    });
 
-  const { data: runsData, isLoading: runsLoading } = useQuery({
-    queryKey: ["dual-runs", pagination, selectedCustomerId],
-    queryFn: async () => {
-      const params: Record<string, string | number | boolean | undefined | null> = {
-        page: pagination.pageIndex + 1,
-        per_page: pagination.pageSize,
-      };
-      if (selectedCustomerId !== "all") {
-        params.customer_id = selectedCustomerId;
+  const startDualRun = useStartDualRun();
+
+  const handleStartDualRun = () => {
+    if (selectedCustomerId === "all") {
+      toast.error("Please select a customer to compare");
+      return;
+    }
+
+    startDualRun.mutate(
+      { customer_id: Number(selectedCustomerId) },
+      {
+        onSuccess: (result) => {
+          toast.success("Dual-run comparison completed", {
+            description: `${result.orders_compared} orders compared - ${result.match_status.replace("_", " ")}`,
+          });
+        },
+        onError: () => {
+          toast.error("Failed to start dual-run comparison");
+        },
       }
-      const response = await api.get<{
-        data: DualRun[];
-        meta: { total: number; total_pages: number };
-      }>("/api/v1/billing/dual-run/runs", params);
-      return response.data;
-    },
-  });
+    );
+  };
 
-  const startDualRun = useMutation({
-    mutationFn: async (customerId?: string) => {
-      if (customerId && customerId !== "all") {
-        return api.post(`/api/v1/billing/dual-run/customer/${customerId}/start`);
-      }
-      return api.post("/api/v1/billing/dual-run/start");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dual-run-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["dual-runs"] });
-      toast.success("Dual run started", {
-        description: "The comparison process has been initiated",
-      });
-    },
-    onError: () => {
-      toast.error("Failed to start dual run");
-    },
-  });
+  // Compute summary stats from current page data
+  const comparisons = comparisonsData?.data ?? [];
+  const totalComparisons = comparisonsData?.meta?.total ?? 0;
+  const perfectMatches = comparisons.filter(
+    (c) => c.match_status === "perfect_match"
+  ).length;
+  const majorVariances = comparisons.filter(
+    (c) => c.match_status === "major_variance"
+  ).length;
 
-  const matchRate = stats?.match_rate ?? 0;
-
-  const columns: ColumnDef<DualRun>[] = [
+  const columns: ColumnDef<DualRunComparison>[] = [
     {
-      accessorKey: "started_at",
+      accessorKey: "run_at",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Started" />
+        <DataTableColumnHeader column={column} title="Date" />
       ),
-      cell: ({ row }) => formatDateTime(row.original.started_at),
+      cell: ({ row }) =>
+        row.original.run_at ? formatDateTime(row.original.run_at) : "-",
     },
     {
       accessorKey: "customer_name",
@@ -166,35 +133,8 @@ export default function DualRunComparisonPage() {
             {row.original.customer_name || `#${row.original.customer_id}`}
           </Link>
         ) : (
-          <span className="text-muted-foreground">All Customers</span>
+          <span className="text-muted-foreground">-</span>
         ),
-    },
-    {
-      accessorKey: "status",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Status" />
-      ),
-      cell: ({ row }) => {
-        const status = row.original.status;
-        return (
-          <Badge
-            variant={
-              status === "completed"
-                ? "default"
-                : status === "running"
-                ? "secondary"
-                : "destructive"
-            }
-          >
-            {status === "completed" && <CheckCircle className="mr-1 h-3 w-3" />}
-            {status === "running" && (
-              <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
-            )}
-            {status === "failed" && <XCircle className="mr-1 h-3 w-3" />}
-            {status}
-          </Badge>
-        );
-      },
     },
     {
       accessorKey: "orders_compared",
@@ -204,56 +144,86 @@ export default function DualRunComparisonPage() {
       cell: ({ row }) => formatNumber(row.original.orders_compared),
     },
     {
-      accessorKey: "matches",
+      accessorKey: "old_system_total",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Matches" />
+        <DataTableColumnHeader column={column} title="Old Total" />
       ),
       cell: ({ row }) => (
-        <span className="text-green-600 dark:text-green-400">
-          {formatNumber(row.original.matches)}
+        <span className="font-mono">
+          {formatCurrency(Number(row.original.old_system_total))}
         </span>
       ),
     },
     {
-      accessorKey: "mismatches",
+      accessorKey: "new_system_total",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Mismatches" />
+        <DataTableColumnHeader column={column} title="New Total" />
       ),
       cell: ({ row }) => (
-        <span className={row.original.mismatches > 0 ? "text-red-600 dark:text-red-400" : ""}>
-          {formatNumber(row.original.mismatches)}
+        <span className="font-mono">
+          {formatCurrency(Number(row.original.new_system_total))}
         </span>
       ),
     },
     {
-      accessorKey: "variance",
+      accessorKey: "variance_amount",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Variance" />
+        <DataTableColumnHeader column={column} title="Delta" />
       ),
       cell: ({ row }) => {
-        const variance = row.original.variance;
-        const variancePercent = row.original.variance_percent;
-        const isPositive = variance > 0;
-        const isNegative = variance < 0;
+        const delta = Number(row.original.variance_amount);
+        const deltaPercent = Number(row.original.variance_percentage);
         return (
           <div className="text-right">
             <span
               className={
-                isPositive
-                  ? "text-green-600 dark:text-green-400"
-                  : isNegative
+                delta > 0
                   ? "text-red-600 dark:text-red-400"
-                  : ""
+                  : delta < 0
+                    ? "text-green-600 dark:text-green-400"
+                    : ""
               }
             >
-              {isPositive ? "+" : ""}
-              {formatCurrency(variance)}
+              {delta > 0 ? "+" : ""}
+              {formatCurrency(delta)}
             </span>
-            <p className="text-xs text-muted-foreground">
-              {isPositive ? "+" : ""}
-              {variancePercent.toFixed(2)}%
-            </p>
+            {deltaPercent > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {deltaPercent.toFixed(2)}%
+              </p>
+            )}
           </div>
+        );
+      },
+    },
+    {
+      accessorKey: "match_status",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Status" />
+      ),
+      cell: ({ row }) => {
+        const status = row.original.match_status;
+        return (
+          <Badge
+            variant={
+              status === "perfect_match"
+                ? "default"
+                : status === "minor_variance"
+                  ? "secondary"
+                  : "destructive"
+            }
+          >
+            {status === "perfect_match" && (
+              <CheckCircle className="mr-1 h-3 w-3" />
+            )}
+            {status === "minor_variance" && (
+              <AlertTriangle className="mr-1 h-3 w-3" />
+            )}
+            {status === "major_variance" && (
+              <XCircle className="mr-1 h-3 w-3" />
+            )}
+            {status.replace("_", " ")}
+          </Badge>
         );
       },
     },
@@ -285,9 +255,11 @@ export default function DualRunComparisonPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dual Run Comparison</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Dual-Run Comparison
+          </h1>
           <p className="text-muted-foreground">
-            Compare billing calculations between old and new engines
+            Compare old vs new billing rules side-by-side
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -296,7 +268,7 @@ export default function DualRunComparisonPage() {
             onValueChange={setSelectedCustomerId}
           >
             <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All Customers" />
+              <SelectValue placeholder="Select Customer" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Customers</SelectItem>
@@ -309,34 +281,33 @@ export default function DualRunComparisonPage() {
           </Select>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button disabled={startDualRun.isPending}>
+              <Button
+                disabled={
+                  startDualRun.isPending || selectedCustomerId === "all"
+                }
+              >
                 {startDualRun.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Play className="mr-2 h-4 w-4" />
                 )}
-                Start Dual Run
+                Start Comparison
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Start Dual Run Comparison?</AlertDialogTitle>
+                <AlertDialogTitle>
+                  Start Dual-Run Comparison?
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {selectedCustomerId === "all"
-                    ? "This will compare billing calculations for all customers using both the old and new billing engines."
-                    : "This will compare billing calculations for the selected customer using both engines."}
-                  {" "}This operation may take several minutes.
+                  This will run the billing engine twice for the selected
+                  customer -- once with the current configuration and once with
+                  the proposed rules -- and compare the results.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() =>
-                    startDualRun.mutate(
-                      selectedCustomerId !== "all" ? selectedCustomerId : undefined
-                    )
-                  }
-                >
+                <AlertDialogAction onClick={handleStartDualRun}>
                   Start Comparison
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -349,15 +320,17 @@ export default function DualRunComparisonPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Runs</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Comparisons
+            </CardTitle>
             <GitCompare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {statsLoading ? (
+            {comparisonsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatNumber(stats?.total_runs ?? 0)}
+                {formatNumber(totalComparisons)}
               </div>
             )}
           </CardContent>
@@ -365,70 +338,78 @@ export default function DualRunComparisonPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Match Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Perfect Matches
+            </CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {statsLoading ? (
+            {comparisonsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <div className="text-2xl font-bold">
-                {matchRate.toFixed(1)}%
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {formatNumber(perfectMatches)}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              {formatNumber(stats?.total_matches ?? 0)} matches
-            </p>
+            <p className="text-xs text-muted-foreground">on this page</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Mismatches</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Major Variances
+            </CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {statsLoading ? (
+            {comparisonsLoading ? (
               <Skeleton className="h-8 w-24" />
             ) : (
               <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {formatNumber(stats?.total_mismatches ?? 0)}
+                {formatNumber(majorVariances)}
               </div>
             )}
+            <p className="text-xs text-muted-foreground">on this page</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Orders Compared</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Page Size
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {statsLoading ? (
+            {comparisonsLoading ? (
               <Skeleton className="h-8 w-32" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatNumber(stats?.total_orders_compared ?? 0)}
+                {formatNumber(comparisons.length)}
               </div>
             )}
+            <p className="text-xs text-muted-foreground">
+              of {formatNumber(totalComparisons)} total
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Runs */}
+      {/* Comparisons Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Dual Run History</CardTitle>
+          <CardTitle>Comparison History</CardTitle>
           <CardDescription>
-            View all dual run comparisons and their results
+            View all dual-run comparisons and their results
           </CardDescription>
         </CardHeader>
         <CardContent>
           <DataTable
             columns={columns}
-            data={runsData?.data ?? []}
-            isLoading={runsLoading}
-            pageCount={runsData?.meta?.total_pages ?? 0}
+            data={comparisons}
+            isLoading={comparisonsLoading}
+            pageCount={comparisonsData?.meta?.total_pages ?? 0}
             pageIndex={pagination.pageIndex}
             pageSize={pagination.pageSize}
             onPaginationChange={setPagination}

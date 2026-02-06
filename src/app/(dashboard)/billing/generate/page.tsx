@@ -38,8 +38,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { api, endpoints } from "@/lib/api/client";
+import { useGeneratePreview, useGenerateBilling } from "@/hooks/use-billing";
+import type { GenerateBillingResult } from "@/hooks/use-billing";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/format";
 
@@ -59,39 +61,20 @@ interface Customer {
   last_billed_at?: string;
 }
 
-interface GenerationPreview {
-  customers: {
-    id: number;
-    name: string;
-    order_count: number;
-    estimated_charges: number;
-  }[];
-  total_orders: number;
-  total_estimated: number;
-}
-
-interface GenerationResult {
-  success: boolean;
-  customers_processed: number;
-  charges_created: number;
-  total_amount: number;
-  errors: { customer_id: number; customer_name: string; error: string }[];
-}
-
 export default function BillingGeneratePage() {
   const queryClient = useQueryClient();
   const [selectedPeriod, setSelectedPeriod] = useState<string>("");
   const [selectedCustomers, setSelectedCustomers] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [includeZeroBalance, setIncludeZeroBalance] = useState(false);
-  const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
+  const [generationResult, setGenerationResult] = useState<GenerateBillingResult | null>(null);
 
   // Fetch billing periods
   const { data: periods, isLoading: periodsLoading } = useQuery({
     queryKey: ["billing-periods-open"],
     queryFn: async () => {
       const response = await api.get<{ data: BillingPeriod[] }>(
-        "/api/v1/billing/periods",
+        endpoints.billing.periods,
         { status: "open" }
       );
       return response.data?.data;
@@ -103,7 +86,7 @@ export default function BillingGeneratePage() {
     queryKey: ["customers-unbilled", selectedPeriod, includeZeroBalance],
     queryFn: async () => {
       const response = await api.get<{ data: Customer[] }>(
-        "/api/v1/billing/unbilled-customers",
+        endpoints.billing.unbilledCustomers,
         {
           period_id: selectedPeriod || undefined,
           include_zero: includeZeroBalance,
@@ -114,53 +97,40 @@ export default function BillingGeneratePage() {
     enabled: true,
   });
 
-  // Preview generation
-  const { data: preview, isLoading: previewLoading } = useQuery({
-    queryKey: ["billing-preview", selectedPeriod, selectedCustomers],
-    queryFn: async () => {
-      const response = await api.post<{ data: GenerationPreview }>(
-        "/api/v1/billing/generate/preview",
-        {
-          period_id: selectedPeriod ? Number(selectedPeriod) : null,
-          customer_ids: selectedCustomers,
-        }
-      );
-      return response.data?.data;
-    },
-    enabled: selectedCustomers.length > 0,
-  });
+  // Preview generation (using centralized hook)
+  const generateParams = {
+    period_id: selectedPeriod ? Number(selectedPeriod) : null,
+    customer_ids: selectedCustomers,
+  };
+  const { data: preview, isLoading: previewLoading } = useGeneratePreview(generateParams);
 
-  // Generate billing mutation
-  const generateBilling = useMutation({
-    mutationFn: async () => {
-      const response = await api.post<{ data: GenerationResult }>(
-        "/api/v1/billing/generate",
-        {
-          period_id: selectedPeriod ? Number(selectedPeriod) : null,
-          customer_ids: selectedCustomers,
-        }
-      );
-      return response.data?.data;
+  // Generate billing mutation (using centralized hook)
+  const generateBillingMutation = useGenerateBilling();
+
+  const generateBilling = {
+    isPending: generateBillingMutation.isPending,
+    mutate: () => {
+      generateBillingMutation.mutate(generateParams, {
+        onSuccess: (data) => {
+          setGenerationResult(data);
+          queryClient.invalidateQueries({ queryKey: ["customers-unbilled"] });
+          queryClient.invalidateQueries({ queryKey: ["billing-periods"] });
+          if (data.errors.length === 0) {
+            toast.success("Billing generated successfully", {
+              description: `${data.charges_created} charges created for ${data.customers_processed} customers`,
+            });
+          } else {
+            toast.warning("Billing completed with errors", {
+              description: `${data.errors.length} customers had errors`,
+            });
+          }
+        },
+        onError: () => {
+          toast.error("Failed to generate billing");
+        },
+      });
     },
-    onSuccess: (data) => {
-      if (!data) return;
-      setGenerationResult(data);
-      queryClient.invalidateQueries({ queryKey: ["customers-unbilled"] });
-      queryClient.invalidateQueries({ queryKey: ["billing-periods"] });
-      if (data.errors.length === 0) {
-        toast.success("Billing generated successfully", {
-          description: `${data.charges_created} charges created for ${data.customers_processed} customers`,
-        });
-      } else {
-        toast.warning("Billing completed with errors", {
-          description: `${data.errors.length} customers had errors`,
-        });
-      }
-    },
-    onError: () => {
-      toast.error("Failed to generate billing");
-    },
-  });
+  };
 
   const handleSelectAll = (checked: boolean) => {
     setSelectAll(checked);

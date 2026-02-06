@@ -105,6 +105,117 @@ export function useServiceType(id: number | string) {
 }
 
 // ============================================================================
+// Service Types Mutation Hooks
+// ============================================================================
+
+export interface CreateServiceTypeData {
+  name: string;
+  description?: string | null;
+  category: string;
+  subcategory?: string | null;
+  unit: string;
+  base_rate?: string | null;
+  minimum_charge?: string | null;
+  auto_generate?: boolean;
+  auto_generate_source?: string | null;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+export interface UpdateServiceTypeData {
+  name?: string;
+  description?: string | null;
+  category?: string;
+  subcategory?: string | null;
+  unit?: string;
+  base_rate?: string | null;
+  minimum_charge?: string | null;
+  auto_generate?: boolean;
+  auto_generate_source?: string | null;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+/**
+ * Create a new service type
+ */
+export function useCreateServiceType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: CreateServiceTypeData): Promise<ServiceType> => {
+      const response = await api.post<ServiceType>(
+        endpoints.services.types,
+        data
+      );
+      if (!response.data) {
+        throw new Error("Failed to create service type");
+      }
+      return response.data;
+    },
+    onSuccess: (newType) => {
+      queryClient.invalidateQueries({
+        queryKey: servicesKeys.types(),
+      });
+      queryClient.setQueryData(servicesKeys.typeDetail(newType.id), newType);
+    },
+  });
+}
+
+/**
+ * Update an existing service type
+ */
+export function useUpdateServiceType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number | string;
+      data: UpdateServiceTypeData;
+    }): Promise<ServiceType> => {
+      const response = await api.put<ServiceType>(
+        endpoints.services.typeDetail(id),
+        data
+      );
+      if (!response.data) {
+        throw new Error("Failed to update service type");
+      }
+      return response.data;
+    },
+    onSuccess: (updatedType, { id }) => {
+      queryClient.invalidateQueries({
+        queryKey: servicesKeys.types(),
+      });
+      queryClient.setQueryData(servicesKeys.typeDetail(id), updatedType);
+    },
+  });
+}
+
+/**
+ * Delete a service type
+ */
+export function useDeleteServiceType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number | string): Promise<void> => {
+      await api.delete(endpoints.services.typeDetail(id));
+    },
+    onSuccess: (_, deletedId) => {
+      queryClient.invalidateQueries({
+        queryKey: servicesKeys.types(),
+      });
+      queryClient.removeQueries({
+        queryKey: servicesKeys.typeDetail(deletedId),
+      });
+    },
+  });
+}
+
+// ============================================================================
 // Service Rates Query Hooks
 // ============================================================================
 
