@@ -123,3 +123,6 @@ export * from "./use-customer-context";
 
 // Permission hooks
 export * from "./use-permissions";
+
+// Notification hooks
+export * from "./use-notifications";

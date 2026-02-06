@@ -412,6 +412,14 @@ export const endpoints = {
     transactions: "/api/v1/inventory/transactions",
   },
 
+  // Workflow Templates
+  workflows: {
+    list: "/api/v1/workflow-templates",
+    detail: (id: number | string) => `/api/v1/workflow-templates/${id}`,
+    apply: (id: number | string, customerId: number | string) =>
+      `/api/v1/workflow-templates/${id}/apply/${customerId}`,
+  },
+
   // Misc
   search: "/api/v1/search",
   activity: "/api/v1/activity",

@@ -426,6 +426,19 @@ export interface Activity {
   metadata?: Record<string, unknown>;
 }
 
+// Notification Types
+export interface Notification {
+  id: string;
+  action: string;
+  resource_type: string;
+  resource_id: number | string;
+  title: string;
+  description: string;
+  timestamp: string;
+  read: boolean;
+  url?: string;
+}
+
 // Pagination Types
 export interface PaginationMeta {
   page: number;

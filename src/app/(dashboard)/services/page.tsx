@@ -29,12 +29,12 @@ import type { ServiceType, ServiceRate } from "@/types";
 
 const serviceTypeColumns: ColumnDef<ServiceType>[] = [
   {
-    accessorKey: "code",
+    accessorKey: "id",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Code" />
+      <DataTableColumnHeader column={column} title="ID" />
     ),
     cell: ({ row }) => (
-      <span className="font-mono font-medium">{row.original.code}</span>
+      <span className="font-mono font-medium">{row.original.id}</span>
     ),
   },
   {

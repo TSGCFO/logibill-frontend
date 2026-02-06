@@ -88,7 +88,7 @@ const mappingFormSchema = z.object({
   customer_id: z.string().min(1, "Customer is required"),
   techship_client_id: z.string().min(1, "TechShip Client ID is required"),
   techship_client_name: z.string().min(1, "TechShip Client Name is required"),
-  is_active: z.boolean().default(true),
+  is_active: z.boolean(),
 });
 
 type MappingFormValues = z.infer<typeof mappingFormSchema>;

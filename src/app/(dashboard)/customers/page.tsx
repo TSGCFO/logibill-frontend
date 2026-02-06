@@ -35,13 +35,13 @@ function CustomerActions({ customer }: { customer: Customer }) {
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
         <DropdownMenuItem asChild>
-          <Link href={}>
+          <Link href={`/customers/${customer.id}`}>
             <Eye className="mr-2 h-4 w-4" />
             View
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href={}>
+          <Link href={`/customers/${customer.id}/edit`}>
             <Edit className="mr-2 h-4 w-4" />
             Edit
           </Link>

@@ -156,6 +156,7 @@ const adminNavItems = [
     items: [
       { title: "Users", url: "/admin/users" },
       { title: "Onboarding Tokens", url: "/admin/onboarding-tokens" },
+      { title: "Workflow Templates", url: "/admin/workflow-templates" },
       { title: "Sync Status", url: "/admin/sync-status" },
       { title: "Periods", url: "/admin/periods" },
       { title: "Accrual Dashboard", url: "/admin/accrual" },

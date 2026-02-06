@@ -1,244 +1,110 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DollarSign,
-  Package,
-  FileText,
-  AlertCircle,
-  ArrowUpRight,
-  ArrowDownRight,
-  TrendingUp,
-  Clock,
-  Users,
-  Calculator,
-} from "lucide-react";
-import Link from "next/link";
+import { Settings2 } from "lucide-react";
 import { useDashboardMetrics } from "@/hooks/use-billing";
-import { formatCurrency, formatNumber } from "@/lib/format";
+import {
+  DashboardWidget,
+  getWidgetGridClass,
+  WidgetConfigDialog,
+} from "@/components/dashboard";
+import {
+  useDashboardStore,
+  selectVisibleWidgets,
+  type WidgetSize,
+} from "@/stores/dashboard";
+import { cn } from "@/lib/utils";
 
-function MetricCard({
-  title,
-  value,
-  change,
-  changeLabel,
-  icon: Icon,
-  trend,
-  href,
-  isLoading,
-}: {
-  title: string;
-  value: string;
-  change?: string;
-  changeLabel?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  trend?: "up" | "down" | "neutral";
-  href: string;
-  isLoading?: boolean;
-}) {
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-8 w-32 mb-1" />
-          <Skeleton className="h-3 w-20" />
-        </CardContent>
-      </Card>
-    );
-  }
+// ============================================================================
+// Layout helpers
+// ============================================================================
 
-  return (
-    <Card className="hover:shadow-card-hover transition-shadow">
-      <Link href={href}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            {title}
-          </CardTitle>
-          <Icon className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{value}</div>
-          {change && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              {trend === "up" && (
-                <ArrowUpRight className="h-3 w-3 text-green-500" />
-              )}
-              {trend === "down" && (
-                <ArrowDownRight className="h-3 w-3 text-red-500" />
-              )}
-              <span
-                className={
-                  trend === "up"
-                    ? "text-green-500"
-                    : trend === "down"
-                    ? "text-red-500"
-                    : ""
-                }
-              >
-                {change}
-              </span>
-              {changeLabel && <span>{changeLabel}</span>}
-            </p>
-          )}
-        </CardContent>
-      </Link>
-    </Card>
-  );
+/**
+ * Groups widgets into layout rows for the dashboard grid.
+ *
+ * Small widgets (1-col) are batched into rows of up to 4.
+ * Medium widgets (2-col) share a row in pairs, or combine with small widgets.
+ * Large widgets (4-col / full-width) always occupy an entire row.
+ *
+ * Returns a flat array of { widget, gridClass } entries that can be rendered
+ * sequentially inside a `grid-cols-4` container.
+ */
+function buildWidgetLayout(
+  widgets: { id: string; type: string; size: WidgetSize }[]
+) {
+  return widgets.map((w) => ({
+    widget: w,
+    gridClass: getWidgetGridClass(w.size),
+  }));
 }
 
-function QuickActionsCard() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Quick Actions</CardTitle>
-        <CardDescription>Common tasks you can perform</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-2">
-        <Button asChild variant="outline" className="justify-start">
-          <Link href="/billing/accrual">
-            <Calculator className="mr-2 h-4 w-4" />
-            Run Accrual
-          </Link>
-        </Button>
-        <Button asChild variant="outline" className="justify-start">
-          <Link href="/billing/periods">
-            <Clock className="mr-2 h-4 w-4" />
-            Close Billing Period
-          </Link>
-        </Button>
-        <Button asChild variant="outline" className="justify-start">
-          <Link href="/invoices/new">
-            <FileText className="mr-2 h-4 w-4" />
-            Create Invoice
-          </Link>
-        </Button>
-        <Button asChild variant="outline" className="justify-start">
-          <Link href="/customers/new">
-            <Users className="mr-2 h-4 w-4" />
-            Add Customer
-          </Link>
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-function RecentActivityCard() {
-  // Placeholder for real-time activity feed
-  const activities = [
-    { id: 1, text: "Vasanti: 15 orders synced", time: "2 minutes ago" },
-    { id: 2, text: "Invoice #1234 sent to Clean Kiss", time: "5 minutes ago" },
-    { id: 3, text: "Accrual completed: 47 orders processed", time: "1 hour ago" },
-    { id: 4, text: "Payment received: $2,450 from Vasanti", time: "3 hours ago" },
-  ];
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>Latest updates from the system</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {activities.map((activity) => (
-            <div key={activity.id} className="flex items-start gap-3">
-              <div className="h-2 w-2 rounded-full bg-blue-500 mt-2" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm">{activity.text}</p>
-                <p className="text-xs text-muted-foreground">{activity.time}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+// ============================================================================
+// Page Component
+// ============================================================================
 
 export default function DashboardPage() {
   const { data: metrics, isLoading } = useDashboardMetrics();
+  const visibleWidgets = useDashboardStore(selectVisibleWidgets);
+  const [configOpen, setConfigOpen] = useState(false);
+
+  const layout = buildWidgetLayout(visibleWidgets);
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Overview of your billing operations
-        </p>
-      </div>
-
-      {/* Metrics Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Revenue MTD"
-          value={formatCurrency(parseFloat(metrics?.revenue_mtd ?? "0"))}
-          change={metrics?.revenue_change_pct ? `${parseFloat(metrics.revenue_change_pct).toFixed(1)}%` : undefined}
-          changeLabel="vs last month"
-          icon={DollarSign}
-          trend={parseFloat(metrics?.revenue_change_pct ?? "0") >= 0 ? "up" : "down"}
-          href="/reports"
-          isLoading={isLoading}
-        />
-        <MetricCard
-          title="Orders Today"
-          value={formatNumber(metrics?.orders_today ?? 0)}
-          change={`${formatNumber(metrics?.orders_mtd ?? 0)} this month`}
-          icon={Package}
-          trend={parseFloat(metrics?.orders_change_pct ?? "0") >= 0 ? "up" : "down"}
-          href="/orders"
-          isLoading={isLoading}
-        />
-        <MetricCard
-          title="Pending Invoices"
-          value={formatNumber(metrics?.pending_invoices_count ?? 0)}
-          change={formatCurrency(parseFloat(metrics?.pending_invoices_amount ?? "0"))}
-          changeLabel="total amount"
-          icon={FileText}
-          href="/invoices?status=pending"
-          isLoading={isLoading}
-        />
-        <MetricCard
-          title="Overdue"
-          value={formatNumber(metrics?.overdue_invoices_count ?? 0)}
-          change={formatCurrency(parseFloat(metrics?.overdue_invoices_amount ?? "0"))}
-          icon={AlertCircle}
-          trend="neutral"
-          href="/invoices?status=overdue"
-          isLoading={isLoading}
-        />
-      </div>
-
-      {/* Charts and Activity */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        {/* Revenue Chart Placeholder */}
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Revenue Trend
-            </CardTitle>
-            <CardDescription>Monthly revenue over the past 12 months</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center">
-            <p className="text-muted-foreground text-sm">
-              Revenue chart will be displayed here
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <div className="col-span-3 space-y-4">
-          <QuickActionsCard />
-          <RecentActivityCard />
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Overview of your billing operations
+          </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setConfigOpen(true)}
+          className="gap-1.5"
+        >
+          <Settings2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Customize</span>
+        </Button>
       </div>
+
+      {/* Dynamic Widget Grid */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+        {layout.map(({ widget, gridClass }) => (
+          <div key={widget.id} className={cn(gridClass)}>
+            <DashboardWidget
+              type={widget.type as Parameters<typeof DashboardWidget>[0]["type"]}
+              size={widget.size}
+              metrics={metrics}
+              isLoading={isLoading}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Empty state */}
+      {visibleWidgets.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+          <Settings2 className="h-10 w-10 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium">No widgets visible</h3>
+          <p className="text-sm text-muted-foreground mt-1 mb-4">
+            Enable widgets to see your billing overview at a glance.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfigOpen(true)}
+          >
+            Customize Dashboard
+          </Button>
+        </div>
+      )}
+
+      {/* Configuration Dialog */}
+      <WidgetConfigDialog open={configOpen} onOpenChange={setConfigOpen} />
     </div>
   );
 }

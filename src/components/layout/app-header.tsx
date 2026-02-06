@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   Search,
-  Bell,
   Moon,
   Sun,
   Monitor,
@@ -40,6 +39,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { createClient } from "@/lib/supabase/client";
@@ -198,10 +198,7 @@ export function AppHeader() {
         </Tooltip>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <Bell className="h-4 w-4" />
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <NotificationBell />
 
         {/* Theme Toggle */}
         <DropdownMenu>
