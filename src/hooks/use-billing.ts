@@ -387,11 +387,32 @@ export function useUnbilledCharges(customerId?: number | string) {
   return useQuery({
     queryKey: billingKeys.unbilled(customerId),
     queryFn: async (): Promise<UnbilledCharge[]> => {
-      const response = await api.get<UnbilledCharge[]>(
+      // The /billing/unbilled endpoint returns { summary: [{customer_id, customer_name, unbilled_count, unbilled_total}, ...] }
+      // We map this to the UnbilledCharge[] shape the page expects
+      interface UnbilledSummaryItem {
+        customer_id: number;
+        customer_name: string;
+        unbilled_count: number;
+        unbilled_total: string;
+        oldest_charge_date: string | null;
+        newest_charge_date: string | null;
+      }
+      const response = await api.get<{ summary: UnbilledSummaryItem[] }>(
         endpoints.billing.unbilled,
         customerId ? { customer_id: customerId } : {}
       );
-      return response.data ?? [];
+      const summary = response.data?.summary ?? [];
+      return summary.map((item) => ({
+        id: item.customer_id,
+        customer_id: item.customer_id,
+        order_id: null,
+        charge_type: "unbilled",
+        description: item.customer_name,
+        amount: parseFloat(item.unbilled_total) || 0,
+        quantity: item.unbilled_count,
+        unit_price: 0,
+        created_at: item.newest_charge_date ?? "",
+      }));
     },
     staleTime: 30000, // 30 seconds
   });
@@ -623,20 +644,43 @@ export function useBillingSandbox() {
 // ============================================================================
 
 /**
- * Fetch accrual statistics
+ * Fetch accrual statistics.
+ *
+ * The backend /accrual/stats returns charge-level aggregates
+ * (total_charges, total_amount, by_customer, by_status) but the frontend
+ * AccrualStats type expects run-level stats (total_runs, successful_runs, last_run_at, etc.).
+ * We derive run-level stats from the /accrual/runs endpoint instead.
  */
 export function useAccrualStats(params: AccrualStatsParams = {}) {
   return useQuery({
     queryKey: accrualKeys.stats(params),
     queryFn: async (): Promise<AccrualStats> => {
-      const response = await api.get<AccrualStats>(endpoints.accrual.stats, {
-        date_from: params.date_from,
-        date_to: params.date_to,
+      // Fetch recent accrual runs to derive stats
+      const response = await api.get<AccrualRun[]>(endpoints.accrual.runs, {
+        limit: 100,
       });
-      if (!response.data) {
-        throw new Error("Failed to fetch accrual stats");
-      }
-      return response.data;
+      const runs = Array.isArray(response.data) ? response.data : [];
+
+      const completedRuns = runs.filter((r) => r.status === "completed");
+      const failedRuns = runs.filter((r) => r.status === "failed");
+      const totalOrders = runs.reduce(
+        (sum, r) => sum + (r.orders_processed ?? 0),
+        0
+      );
+      const totalCharges = runs.reduce(
+        (sum, r) => sum + (r.charges_created ?? 0),
+        0
+      );
+      const lastRun = runs.length > 0 ? runs[0] : null;
+
+      return {
+        total_runs: runs.length,
+        successful_runs: completedRuns.length,
+        failed_runs: failedRuns.length,
+        total_orders_processed: totalOrders,
+        total_charges_created: totalCharges,
+        last_run_at: lastRun?.started_at ?? null,
+      };
     },
     staleTime: 60000, // 1 minute
   });
