@@ -93,8 +93,8 @@ type RoleType = (typeof roleValues)[number];
 const createUserSchema = z
   .object({
     email: z.string().email("Please enter a valid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    name: z.string().optional(),
+    supabase_user_id: z.string().min(1, "Supabase User ID is required"),
+    display_name: z.string().optional(),
     role: z.enum(roleValues, { message: "Please select a role" }),
     customer_id: z.number().nullable().optional(),
   })
@@ -112,7 +112,7 @@ const createUserSchema = z
   );
 
 const editUserSchema = z.object({
-  name: z.string().optional(),
+  display_name: z.string().optional(),
   role: z.enum(roleValues),
   is_active: z.boolean(),
   customer_id: z.number().nullable().optional(),
@@ -181,8 +181,8 @@ export default function UsersPage() {
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       email: "",
-      password: "",
-      name: "",
+      supabase_user_id: "",
+      display_name: "",
       role: undefined,
       customer_id: null,
     },
@@ -207,9 +207,9 @@ export default function UsersPage() {
     try {
       await createUserMutation.mutateAsync({
         email: data.email,
-        password: data.password,
+        supabase_user_id: data.supabase_user_id,
         role: data.role,
-        name: data.name || undefined,
+        display_name: data.display_name || undefined,
         customer_id: data.role === "customer" ? data.customer_id : null,
       });
       toast.success("User created", {
@@ -232,7 +232,7 @@ export default function UsersPage() {
       await updateUserMutation.mutateAsync({
         id: selectedUser.id,
         data: {
-          name: data.name || undefined,
+          display_name: data.display_name || undefined,
           role: data.role,
           is_active: data.is_active,
           customer_id: data.role === "customer" ? data.customer_id : null,
@@ -272,7 +272,7 @@ export default function UsersPage() {
   const openEditDialog = (user: AdminUser) => {
     setSelectedUser(user);
     editForm.reset({
-      name: user.name || "",
+      display_name: user.display_name || "",
       role: user.role,
       is_active: user.is_active,
       customer_id: user.customer_id,
@@ -287,7 +287,7 @@ export default function UsersPage() {
 
   const columns: ColumnDef<AdminUser>[] = [
     {
-      accessorKey: "name",
+      accessorKey: "display_name",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Name" />
       ),
@@ -297,7 +297,7 @@ export default function UsersPage() {
             <UserIcon className="h-4 w-4 text-primary" />
           </div>
           <div>
-            <p className="font-medium">{row.original.name || "Unnamed User"}</p>
+            <p className="font-medium">{row.original.display_name || "Unnamed User"}</p>
             <p className="text-sm text-muted-foreground">
               {row.original.email}
             </p>
@@ -460,19 +460,18 @@ export default function UsersPage() {
                 />
                 <FormField
                   control={createForm.control}
-                  name="password"
+                  name="supabase_user_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel>Supabase User ID</FormLabel>
                       <FormControl>
                         <Input
-                          type="password"
-                          placeholder="Enter password"
+                          placeholder="Enter Supabase user UUID"
                           {...field}
                         />
                       </FormControl>
                       <FormDescription>
-                        Must be at least 8 characters
+                        The UUID from Supabase Auth for this user
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -480,10 +479,10 @@ export default function UsersPage() {
                 />
                 <FormField
                   control={createForm.control}
-                  name="name"
+                  name="display_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name (Optional)</FormLabel>
+                      <FormLabel>Display Name (Optional)</FormLabel>
                       <FormControl>
                         <Input placeholder="John Doe" {...field} />
                       </FormControl>
@@ -677,10 +676,10 @@ export default function UsersPage() {
             >
               <FormField
                 control={editForm.control}
-                name="name"
+                name="display_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name</FormLabel>
+                    <FormLabel>Display Name</FormLabel>
                     <FormControl>
                       <Input placeholder="John Doe" {...field} />
                     </FormControl>

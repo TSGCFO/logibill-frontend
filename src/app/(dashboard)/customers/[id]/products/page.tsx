@@ -61,7 +61,7 @@ export default function CustomerProductsPage() {
   const filteredProducts = productsData?.filter(
     (product) =>
       product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      product.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (customerLoading) {
@@ -139,15 +139,18 @@ export default function CustomerProductsPage() {
                 {filteredProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell className="font-mono">{product.sku}</TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell className="font-medium">{product.description || "-"}</TableCell>
                     <TableCell>{product.category || "-"}</TableCell>
                     <TableCell>
-                      {product.weight ? `${product.weight} lbs` : "-"}
+                      {product.weight_lb ? `${product.weight_lb} lbs` : "-"}
                     </TableCell>
-                    <TableCell>{product.dimensions || "-"}</TableCell>
                     <TableCell>
-                      <Badge variant={product.is_active ? "default" : "secondary"}>
-                        {product.is_active ? "Active" : "Inactive"}
+                      {[product.length_in, product.width_in, product.height_in].filter(Boolean).join(" x ") || "-"}
+                      {product.length_in ? " in" : ""}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={product.wms_is_active ? "default" : "secondary"}>
+                        {product.wms_is_active ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
                     <TableCell>

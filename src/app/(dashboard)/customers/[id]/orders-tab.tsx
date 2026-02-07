@@ -53,21 +53,15 @@ const columns: ColumnDef<Order>[] = [
     },
   },
   {
-    accessorKey: "items_count",
+    accessorKey: "total_items",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Items" />
     ),
   },
   {
-    accessorKey: "packages_count",
+    accessorKey: "total_packages",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Packages" />
-    ),
-  },
-  {
-    accessorKey: "total_picks",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Picks" />
     ),
   },
   {

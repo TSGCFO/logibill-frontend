@@ -76,7 +76,7 @@ export default function BillingDashboardPage() {
 
   const openPeriods = periodsData?.data ?? [];
   const unbilledCharges = unbilledData ?? [];
-  const totalUnbilled = unbilledCharges.reduce((sum, c) => sum + c.amount, 0);
+  const totalUnbilled = unbilledCharges.reduce((sum, c) => sum + (parseFloat(c.unbilled_total) || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -109,7 +109,7 @@ export default function BillingDashboardPage() {
         <StatCard
           title="Total Unbilled"
           value={formatCurrency(totalUnbilled)}
-          description={`${unbilledCharges.length} charges pending`}
+          description={`${unbilledCharges.reduce((sum, c) => sum + c.unbilled_count, 0)} charges pending`}
           icon={DollarSign}
           href="/billing/unbilled"
           isLoading={unbilledLoading}
@@ -123,27 +123,17 @@ export default function BillingDashboardPage() {
           isLoading={periodsLoading}
         />
         <StatCard
-          title="Last Accrual"
-          value={
-            accrualStats?.last_run_at
-              ? formatDate(accrualStats.last_run_at)
-              : "Never"
-          }
-          description={`${formatNumber(accrualStats?.total_orders_processed ?? 0)} orders processed`}
+          title="Total Charges"
+          value={formatNumber(accrualStats?.total_charges ?? 0)}
+          description={`${formatNumber(accrualStats?.total_orders ?? 0)} orders processed`}
           icon={Calculator}
           href="/billing/accrual"
           isLoading={accrualLoading}
         />
         <StatCard
-          title="Success Rate"
-          value={
-            accrualStats
-              ? `${Math.round(
-                  (accrualStats.successful_runs / (accrualStats.total_runs || 1)) * 100
-                )}%`
-              : "-"
-          }
-          description={`${accrualStats?.total_runs ?? 0} total runs`}
+          title="Accrual Amount"
+          value={formatCurrency(accrualStats?.total_amount ?? "0")}
+          description={accrualStats?.date_from ? `From ${formatDate(accrualStats.date_from)}` : "All time"}
           icon={TrendingUp}
           href="/billing/accrual"
           isLoading={accrualLoading}
@@ -194,15 +184,15 @@ export default function BillingDashboardPage() {
                       {period.customer?.name || `Customer #${period.customer_id}`}
                     </Link>
                     <p className="text-sm text-muted-foreground">
-                      {formatDate(period.start_date)} - {formatDate(period.end_date)}
+                      {formatDate(period.period_start)} - {formatDate(period.period_end)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="font-medium">
-                      {formatCurrency(period.total_charges)}
+                      {formatCurrency(period.total_amount)}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {period.total_orders} orders
+                      {period.total_charges} charges
                     </p>
                   </div>
                 </div>

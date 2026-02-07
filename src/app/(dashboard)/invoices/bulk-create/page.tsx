@@ -30,7 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { api, endpoints } from "@/lib/api/client";
 import { useBillingPeriods } from "@/hooks/use-billing";
 import { useCustomers } from "@/hooks/use-customers";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -58,17 +58,18 @@ export default function BulkCreateInvoicesPage() {
     queryKey: ["unbilled-summary", selectedPeriod],
     queryFn: async () => {
       if (!selectedPeriod) return [];
-      const response = await api.get<{ data: UnbilledSummary[] }>(
-        `/api/v1/billing/periods/${selectedPeriod}/unbilled`
+      const response = await api.get<{ summary: UnbilledSummary[] }>(
+        endpoints.billing.unbilled,
+        { billing_period_id: selectedPeriod }
       );
-      return response.data?.data;
+      return response.data?.summary ?? [];
     },
     enabled: !!selectedPeriod,
   });
 
   const createInvoices = useMutation({
-    mutationFn: async (params: { period_id: string; customer_ids: string[] }): Promise<{ created_count: number }> => {
-      const response = await api.post<{ created_count: number }>("/api/v1/invoices/bulk-create", params);
+    mutationFn: async (params: { billing_period_id: string; customer_ids: string[] }): Promise<{ created_count: number }> => {
+      const response = await api.post<{ created_count: number }>(endpoints.invoices.bulkCreate, params);
       return response.data ?? { created_count: 0 };
     },
     onSuccess: (data) => {
@@ -108,7 +109,7 @@ export default function BulkCreateInvoicesPage() {
       return;
     }
     createInvoices.mutate({
-      period_id: selectedPeriod,
+      billing_period_id: selectedPeriod,
       customer_ids: selectedCustomers,
     });
   };
@@ -159,10 +160,10 @@ export default function BulkCreateInvoicesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {openPeriods.map((period) => (
-                    <SelectItem key={period.id} value={period.id}>
+                    <SelectItem key={period.id} value={String(period.id)}>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        {period.name}
+                        {period.period_name}
                         <Badge
                           variant={period.status === "open" ? "default" : "secondary"}
                           className="ml-2"

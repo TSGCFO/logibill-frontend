@@ -1,7 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, endpoints } from "@/lib/api/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Product, PaginatedResponse } from "@/types";
+import { endpoints } from "@/lib/api/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -13,8 +12,6 @@ export const productKeys = {
   all: ["products"] as const,
   lists: () => [...productKeys.all, "list"] as const,
   list: (filters: ProductsParams) => [...productKeys.lists(), filters] as const,
-  details: () => [...productKeys.all, "detail"] as const,
-  detail: (id: number | string) => [...productKeys.details(), id] as const,
 };
 
 // ============================================================================
@@ -25,23 +22,8 @@ export interface ProductsParams {
   page?: number;
   per_page?: number;
   search?: string;
-  category?: string;
   customer_id?: number | string;
-  is_active?: boolean;
 }
-
-export interface CreateProductData {
-  sku: string;
-  name: string;
-  description?: string | null;
-  weight?: number | null;
-  dimensions?: string | null;
-  category?: string | null;
-  customer_id?: number | string;
-  is_active?: boolean;
-}
-
-export interface UpdateProductData extends Partial<CreateProductData> {}
 
 export interface BulkUploadValidationError {
   row: number;
@@ -53,134 +35,10 @@ export interface BulkUploadValidationError {
 export interface BulkUploadResult {
   success: boolean;
   total_rows: number;
-  created: number;
-  updated: number;
-  failed: number;
+  products_created: number;
+  products_updated: number;
+  invalid_rows: number;
   errors: BulkUploadValidationError[];
-}
-
-// ============================================================================
-// Query Hooks
-// ============================================================================
-
-/**
- * Fetch paginated list of products with optional filters
- */
-export function useProducts(params: ProductsParams = {}) {
-  return useQuery({
-    queryKey: productKeys.list(params),
-    queryFn: async (): Promise<PaginatedResponse<Product>> => {
-      const response = await api.get<Product[]>(endpoints.products.list, {
-        page: params.page,
-        per_page: params.per_page,
-        search: params.search,
-        category: params.category,
-        customer_id: params.customer_id,
-        is_active: params.is_active,
-      });
-
-      return {
-        data: response.data ?? [],
-        meta: response.meta ?? {
-          page: params.page ?? 1,
-          per_page: params.per_page ?? 20,
-          total: 0,
-          total_pages: 0,
-        },
-      };
-    },
-    staleTime: 30000, // 30 seconds
-  });
-}
-
-/**
- * Fetch a single product by ID
- */
-export function useProduct(id: number | string) {
-  return useQuery({
-    queryKey: productKeys.detail(id),
-    queryFn: async (): Promise<Product> => {
-      const response = await api.get<Product>(endpoints.products.detail(id));
-      if (!response.data) {
-        throw new Error("Product not found");
-      }
-      return response.data;
-    },
-    enabled: !!id,
-    staleTime: 60000, // 1 minute
-  });
-}
-
-// ============================================================================
-// Mutation Hooks
-// ============================================================================
-
-/**
- * Create a new product
- */
-export function useCreateProduct() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: CreateProductData): Promise<Product> => {
-      const response = await api.post<Product>(endpoints.products.list, data);
-      if (!response.data) {
-        throw new Error("Failed to create product");
-      }
-      return response.data;
-    },
-    onSuccess: (newProduct) => {
-      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
-      queryClient.setQueryData(
-        productKeys.detail(newProduct.id),
-        newProduct
-      );
-    },
-  });
-}
-
-/**
- * Update an existing product
- */
-export function useUpdateProduct(id: number | string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: UpdateProductData): Promise<Product> => {
-      const response = await api.put<Product>(
-        endpoints.products.detail(id),
-        data
-      );
-      if (!response.data) {
-        throw new Error("Failed to update product");
-      }
-      return response.data;
-    },
-    onSuccess: (updatedProduct) => {
-      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
-      queryClient.setQueryData(
-        productKeys.detail(id),
-        updatedProduct
-      );
-    },
-  });
-}
-
-/**
- * Delete a product
- */
-export function useDeleteProduct() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: number | string): Promise<void> => {
-      await api.delete(endpoints.products.detail(id));
-    },
-    onSuccess: (_, deletedId) => {
-      queryClient.invalidateQueries({ queryKey: productKeys.lists() });
-      queryClient.removeQueries({ queryKey: productKeys.detail(deletedId) });
-    },
-  });
 }
 
 // ============================================================================

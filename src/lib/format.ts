@@ -1,17 +1,19 @@
 /**
  * Format a number as currency (USD)
+ * Accepts both number and string (backend returns decimal strings)
  */
 export function formatCurrency(
-  amount: number,
+  amount: number | string,
   options?: Intl.NumberFormatOptions
 ): string {
+  const numericAmount = typeof amount === "string" ? parseFloat(amount) || 0 : amount;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
     ...options,
-  }).format(amount);
+  }).format(numericAmount);
 }
 
 /**

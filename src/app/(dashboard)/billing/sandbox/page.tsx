@@ -102,7 +102,7 @@ export default function BillingSandboxPage() {
       const result = await sandboxMutation.mutateAsync(sandboxData);
       setResults(result);
       toast.success("Sandbox evaluation complete", {
-        description: `Total: ${formatCurrency(result.total)} (${result.execution_time_ms}ms)`,
+        description: `Total: ${formatCurrency(result.total)} (${result.execution_time_ms ?? 0}ms)`,
       });
     } catch (error) {
       toast.error("Failed to run sandbox", {
@@ -149,7 +149,7 @@ export default function BillingSandboxPage() {
                 <SelectContent>
                   {customers?.map((customer) => (
                     <SelectItem key={customer.id} value={String(customer.id)}>
-                      {customer.name} ({customer.code})
+                      {customer.name} ({customer.external_id ?? customer.id})
                     </SelectItem>
                   ))}
                 </SelectContent>

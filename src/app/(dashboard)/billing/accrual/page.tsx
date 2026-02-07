@@ -41,13 +41,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useAccrualStats, useAccrualRuns, useRunAccrual } from "@/hooks/use-billing";
-import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
+import { useAccrualStats, useAccrualRuns, useRunAccrual } from "@/hooks/use-accrual";
+import { formatDate, formatDateTime, formatNumber, formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
 export default function AccrualDashboardPage() {
   const { data: stats, isLoading: statsLoading } = useAccrualStats();
-  const { data: runs, isLoading: runsLoading } = useAccrualRuns({ limit: 20 });
+  const { data: runs, isLoading: runsLoading } = useAccrualRuns(20);
   const runAccrual = useRunAccrual();
 
   const handleRunAccrual = async () => {
@@ -61,9 +61,10 @@ export default function AccrualDashboardPage() {
     }
   };
 
-  const successRate = stats
-    ? Math.round((stats.successful_runs / (stats.total_runs || 1)) * 100)
-    : 0;
+  // Compute run success rate from the runs list
+  const completedRuns = runs?.filter((r) => r.status === "completed").length ?? 0;
+  const totalRuns = runs?.length ?? 0;
+  const successRate = totalRuns > 0 ? Math.round((completedRuns / totalRuns) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -109,7 +110,7 @@ export default function AccrualDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Runs</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Charges</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -117,7 +118,7 @@ export default function AccrualDashboardPage() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatNumber(stats?.total_runs ?? 0)}
+                {formatNumber(stats?.total_charges ?? 0)}
               </div>
             )}
           </CardContent>
@@ -125,17 +126,16 @@ export default function AccrualDashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {statsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <>
-                <div className="text-2xl font-bold">{successRate}%</div>
-                <Progress value={successRate} className="mt-2" />
-              </>
+              <div className="text-2xl font-bold">
+                {formatCurrency(stats?.total_amount ?? "0")}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -150,7 +150,7 @@ export default function AccrualDashboardPage() {
               <Skeleton className="h-8 w-24" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatNumber(stats?.total_orders_processed ?? 0)}
+                {formatNumber(stats?.total_orders ?? 0)}
               </div>
             )}
           </CardContent>
@@ -158,18 +158,17 @@ export default function AccrualDashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Last Run</CardTitle>
+            <CardTitle className="text-sm font-medium">Run Success Rate</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {statsLoading ? (
               <Skeleton className="h-8 w-32" />
             ) : (
-              <div className="text-lg font-medium">
-                {stats?.last_run_at
-                  ? formatDateTime(stats.last_run_at)
-                  : "Never"}
-              </div>
+              <>
+                <div className="text-2xl font-bold">{successRate}%</div>
+                <Progress value={successRate} className="mt-2" />
+              </>
             )}
           </CardContent>
         </Card>
@@ -245,9 +244,9 @@ export default function AccrualDashboardPage() {
                         : "-"}
                     </TableCell>
                     <TableCell>
-                      {run.errors && run.errors.length > 0 ? (
+                      {run.errors_count > 0 ? (
                         <Badge variant="destructive">
-                          {run.errors.length} error(s)
+                          {run.errors_count} error(s)
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground">None</span>

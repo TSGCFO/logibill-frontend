@@ -27,7 +27,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+// Progress removed - no longer used in stats
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -61,27 +61,13 @@ import { useCustomers } from "@/hooks/use-customers";
 import { formatDateTime, formatNumber, formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
-interface AccrualRun {
-  id: string;
-  started_at: string;
-  completed_at?: string;
-  status: "running" | "completed" | "failed";
+// Use types from @/types (already corrected to match backend)
+import type { AccrualRun as AccrualRunType, AccrualStats } from "@/types";
+
+// AccrualRun with optional customer fields returned in the list endpoint
+interface AccrualRun extends AccrualRunType {
   customer_id?: number;
   customer_name?: string;
-  orders_processed: number;
-  charges_created: number;
-  total_amount: number;
-  errors?: string[];
-}
-
-interface AccrualStats {
-  total_runs: number;
-  successful_runs: number;
-  failed_runs: number;
-  total_orders_processed: number;
-  total_charges_created: number;
-  total_amount_billed: number;
-  last_run_at?: string;
 }
 
 export default function AdminAccrualPage() {
@@ -142,9 +128,12 @@ export default function AdminAccrualPage() {
     },
   });
 
-  const successRate = stats
-    ? Math.round((stats.successful_runs / (stats.total_runs || 1)) * 100)
-    : 0;
+  // AccrualStats from backend has total_charges, total_amount, total_orders, by_status
+  // Derive run counts from by_status array if available
+  const statusCounts = stats?.by_status ?? [];
+  const totalCharges = stats?.total_charges ?? 0;
+  const totalAmount = stats?.total_amount ?? "0";
+  const totalOrders = stats?.total_orders ?? 0;
 
   const columns: ColumnDef<AccrualRun>[] = [
     {
@@ -184,8 +173,10 @@ export default function AdminAccrualPage() {
               status === "completed"
                 ? "default"
                 : status === "running"
-                ? "secondary"
-                : "destructive"
+                  ? "secondary"
+                  : status === "partial"
+                    ? "outline"
+                    : "destructive"
             }
           >
             {status === "completed" && <CheckCircle className="mr-1 h-3 w-3" />}
@@ -213,15 +204,11 @@ export default function AdminAccrualPage() {
       cell: ({ row }) => formatNumber(row.original.charges_created),
     },
     {
-      accessorKey: "total_amount",
+      accessorKey: "charges_skipped",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Amount" />
+        <DataTableColumnHeader column={column} title="Skipped" />
       ),
-      cell: ({ row }) => (
-        <span className="font-medium">
-          {formatCurrency(row.original.total_amount)}
-        </span>
-      ),
+      cell: ({ row }) => formatNumber(row.original.charges_skipped),
     },
     {
       accessorKey: "completed_at",
@@ -234,15 +221,15 @@ export default function AdminAccrualPage() {
           : "-",
     },
     {
-      accessorKey: "errors",
+      accessorKey: "errors_count",
       header: "Errors",
       cell: ({ row }) => {
-        const errors = row.original.errors;
-        if (!errors || errors.length === 0) {
+        const count = row.original.errors_count;
+        if (!count || count === 0) {
           return <span className="text-muted-foreground">None</span>;
         }
         return (
-          <Badge variant="destructive">{errors.length} error(s)</Badge>
+          <Badge variant="destructive">{count} error(s)</Badge>
         );
       },
     },
@@ -317,7 +304,7 @@ export default function AdminAccrualPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Runs</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Charges</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -325,7 +312,7 @@ export default function AdminAccrualPage() {
               <Skeleton className="h-8 w-16" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatNumber(stats?.total_runs ?? 0)}
+                {formatNumber(totalCharges)}
               </div>
             )}
           </CardContent>
@@ -333,24 +320,23 @@ export default function AdminAccrualPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {statsLoading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <>
-                <div className="text-2xl font-bold">{successRate}%</div>
-                <Progress value={successRate} className="mt-2" />
-              </>
+              <div className="text-2xl font-bold">
+                {formatNumber(totalOrders)}
+              </div>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Orders Processed</CardTitle>
+            <CardTitle className="text-sm font-medium">Customers</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -358,7 +344,7 @@ export default function AdminAccrualPage() {
               <Skeleton className="h-8 w-24" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatNumber(stats?.total_orders_processed ?? 0)}
+                {formatNumber(stats?.by_customer?.length ?? 0)}
               </div>
             )}
           </CardContent>
@@ -366,7 +352,7 @@ export default function AdminAccrualPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Billed</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -374,7 +360,7 @@ export default function AdminAccrualPage() {
               <Skeleton className="h-8 w-32" />
             ) : (
               <div className="text-2xl font-bold">
-                {formatCurrency(stats?.total_amount_billed ?? 0)}
+                {formatCurrency(parseFloat(totalAmount) || 0)}
               </div>
             )}
           </CardContent>

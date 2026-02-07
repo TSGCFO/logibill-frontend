@@ -29,12 +29,12 @@ export function PackagingRateCatalog({
 }: PackagingRateCatalogProps) {
   const columns: ColumnDef<PackagingRate>[] = [
     {
-      accessorKey: "name",
+      accessorKey: "size_category",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Name" />
+        <DataTableColumnHeader column={column} title="Size Category" />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
+        <span className="font-medium">{row.original.size_category}</span>
       ),
     },
     {
@@ -47,22 +47,24 @@ export function PackagingRateCatalog({
       ),
     },
     {
-      accessorKey: "material_type",
+      accessorKey: "all_in_rate",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Material Type" />
-      ),
-      cell: ({ row }) => (
-        <Badge variant="outline">{row.original.material_type}</Badge>
-      ),
-    },
-    {
-      accessorKey: "base_rate",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Base Rate" />
+        <DataTableColumnHeader column={column} title="All-In Rate" />
       ),
       cell: ({ row }) => (
         <span className="font-medium">
-          {formatCurrency(row.original.base_rate)}
+          {formatCurrency(parseFloat(row.original.all_in_rate) || 0)}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "box_cost",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Box Cost" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {formatCurrency(parseFloat(row.original.box_cost) || 0)}
         </span>
       ),
     },
@@ -96,7 +98,7 @@ export function PackagingRateCatalog({
     <DataTable
       columns={columns}
       data={rates}
-      searchKey="name"
+      searchKey="size_category"
       searchPlaceholder="Search packaging rates..."
       isLoading={isLoading}
     />

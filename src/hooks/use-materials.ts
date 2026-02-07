@@ -4,6 +4,7 @@ import type {
   MaterialsPricingGlobal,
   MaterialsPricingCustomer,
   PackagingRateCatalog,
+  MaterialAuditLogEntry,
 } from "@/types";
 
 // ============================================================================
@@ -47,41 +48,30 @@ export interface MaterialsOverridesParams {
 export interface CreateMaterialGlobalData {
   material_type: string;
   box_size?: string | null;
-  unit_cost: number;
-  effective_date: string;
+  cost_per_unit: string;
+  effective_from: string;
 }
 
 export interface UpdateMaterialGlobalData {
   material_type?: string;
   box_size?: string | null;
-  unit_cost?: number;
-  effective_date?: string;
+  cost_per_unit?: string;
+  effective_from?: string;
 }
 
 export interface CreateMaterialOverrideData {
   customer_id: number;
   material_type: string;
   box_size?: string | null;
-  unit_cost: number;
-  effective_date: string;
+  cost_override: string;
+  effective_from: string;
 }
 
 export interface UpdateMaterialOverrideData {
   material_type?: string;
   box_size?: string | null;
-  unit_cost?: number;
-  effective_date?: string;
-}
-
-export interface MaterialAuditLogEntry {
-  id: number;
-  entity_type: "global" | "override";
-  entity_id: number;
-  action: "create" | "update" | "delete";
-  changes: Record<string, { old: unknown; new: unknown }>;
-  user_id: string;
-  user_email: string;
-  timestamp: string;
+  cost_override?: string;
+  effective_from?: string;
 }
 
 // ============================================================================

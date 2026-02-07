@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { api, endpoints } from "@/lib/api/client";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import type { Invoice } from "@/types";
@@ -48,11 +48,11 @@ export default function BulkSendInvoicesPage() {
   const { data: invoicesData, isLoading } = useQuery({
     queryKey: ["invoices", "pending-send"],
     queryFn: async () => {
-      const response = await api.get<{ data: Invoice[] }>("/api/v1/invoices", {
-        status: "pending",
+      const response = await api.get<Invoice[]>(endpoints.invoices.list, {
+        status: "pending_approval",
         per_page: 100,
       });
-      return response.data?.data;
+      return response.data ?? [];
     },
   });
 
@@ -71,7 +71,7 @@ export default function BulkSendInvoicesPage() {
 
       // Simulate sending with progress
       for (let i = 0; i < invoiceIds.length; i++) {
-        await api.post(`/api/v1/invoices/${invoiceIds[i]}/send`);
+        await api.post(endpoints.invoices.send(invoiceIds[i]));
         setSendProgress(Math.round(((i + 1) / invoiceIds.length) * 100));
       }
 
@@ -118,7 +118,7 @@ export default function BulkSendInvoicesPage() {
   const selectedTotal =
     pendingInvoices
       ?.filter((inv) => selectedInvoices.includes(String(inv.id)))
-      .reduce((sum, inv) => sum + (inv.total ?? 0), 0) ?? 0;
+      .reduce((sum, inv) => sum + (parseFloat(inv.total_amount) || 0), 0) ?? 0;
 
   return (
     <div className="space-y-6">
@@ -205,15 +205,15 @@ export default function BulkSendInvoicesPage() {
                         <div>
                           <p className="font-medium">{invoice.customer?.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {invoice.customer?.code}
+                            {invoice.customer?.external_id}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell>
-                        {invoice.customer?.email ? (
+                        {(invoice.customer as Record<string, unknown>)?.email ? (
                           <span className="flex items-center gap-1 text-sm">
                             <Mail className="h-3 w-3" />
-                            {invoice.customer.email}
+                            {String((invoice.customer as Record<string, unknown>)?.email)}
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 text-sm text-destructive">
@@ -223,10 +223,10 @@ export default function BulkSendInvoicesPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(invoice.total ?? 0)}
+                        {formatCurrency(invoice.total_amount)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">Pending</Badge>
+                        <Badge variant="secondary">Pending Approval</Badge>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -257,7 +257,7 @@ export default function BulkSendInvoicesPage() {
                 {
                   pendingInvoices?.filter(
                     (inv) =>
-                      selectedInvoices.includes(String(inv.id)) && inv.customer?.email
+                      selectedInvoices.includes(String(inv.id)) && (inv.customer as Record<string, unknown>)?.email
                   ).length ?? 0
                 }
               </span>
@@ -294,7 +294,7 @@ export default function BulkSendInvoicesPage() {
             </Button>
 
             {pendingInvoices?.some(
-              (inv) => selectedInvoices.includes(String(inv.id)) && !inv.customer?.email
+              (inv) => selectedInvoices.includes(String(inv.id)) && !(inv.customer as Record<string, unknown>)?.email
             ) && (
               <p className="text-xs text-destructive flex items-center gap-1">
                 <AlertCircle className="h-3 w-3" />

@@ -44,11 +44,11 @@ const columns: ColumnDef<Invoice>[] = [
     },
   },
   {
-    accessorKey: "issue_date",
+    accessorKey: "invoice_date",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Issue Date" />
+      <DataTableColumnHeader column={column} title="Invoice Date" />
     ),
-    cell: ({ row }) => formatDate(row.original.issue_date),
+    cell: ({ row }) => formatDate(row.original.invoice_date),
   },
   {
     accessorKey: "due_date",
@@ -58,12 +58,12 @@ const columns: ColumnDef<Invoice>[] = [
     cell: ({ row }) => formatDate(row.original.due_date),
   },
   {
-    accessorKey: "total",
+    accessorKey: "total_amount",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Total" />
     ),
     cell: ({ row }) => (
-      <span className="font-medium">{formatCurrency(row.original.total)}</span>
+      <span className="font-medium">{formatCurrency(row.original.total_amount)}</span>
     ),
   },
 ];

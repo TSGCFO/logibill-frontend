@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useFiles, useDeleteFile, useDownloadFile } from "@/hooks/use-files";
-import type { FileRecord } from "@/hooks/use-files";
+import type { FileRecord } from "@/types";
 import Link from "next/link";
 import {
   Upload,
@@ -47,17 +47,18 @@ import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
 import { formatDateTime } from "@/lib/format";
 
-function formatFileSize(bytes: number): string {
+function formatFileSize(bytes: number | null): string {
+  if (bytes == null || bytes === 0) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileIcon(mimeType: string) {
+function getFileIcon(mimeType: string | null) {
   if (mimeType === "application/pdf") {
     return <FileText className="h-4 w-4 text-red-500" />;
   }
-  if (mimeType.includes("spreadsheet") || mimeType === "text/csv") {
+  if (mimeType && (mimeType.includes("spreadsheet") || mimeType === "text/csv")) {
     return <FileSpreadsheet className="h-4 w-4 text-green-500" />;
   }
   return <FileText className="h-4 w-4 text-blue-500" />;
@@ -69,61 +70,46 @@ function getColumns(
 ): ColumnDef<FileRecord>[] {
   return [
     {
-      accessorKey: "name",
+      accessorKey: "original_filename",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="File Name" />
       ),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           {getFileIcon(row.original.mime_type)}
-          <span className="font-medium">{row.original.name}</span>
+          <span className="font-medium">{row.original.original_filename}</span>
         </div>
       ),
     },
     {
-      accessorKey: "type",
+      accessorKey: "entity_type",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Type" />
       ),
       cell: ({ row }) => (
-        <Badge variant="outline">{row.original.type}</Badge>
+        <Badge variant="outline">{row.original.entity_type || row.original.file_type || "-"}</Badge>
       ),
     },
     {
-      accessorKey: "customer_code",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Customer" />
-      ),
-      cell: ({ row }) =>
-        row.original.customer_code ? (
-          <Link
-            href={`/customers/${row.original.customer_code}`}
-            className="hover:underline"
-          >
-            {row.original.customer_code}
-          </Link>
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        ),
-    },
-    {
-      accessorKey: "size",
+      accessorKey: "file_size",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Size" />
       ),
-      cell: ({ row }) => formatFileSize(row.original.size),
+      cell: ({ row }) => formatFileSize(row.original.file_size),
     },
     {
-      accessorKey: "uploaded_at",
+      accessorKey: "created_at",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Uploaded" />
       ),
       cell: ({ row }) => (
         <div>
-          <p>{formatDateTime(row.original.uploaded_at)}</p>
-          <p className="text-xs text-muted-foreground">
-            {row.original.uploaded_by}
-          </p>
+          <p>{formatDateTime(row.original.created_at)}</p>
+          {row.original.uploaded_by && (
+            <p className="text-xs text-muted-foreground">
+              {row.original.uploaded_by}
+            </p>
+          )}
         </div>
       ),
     },
@@ -165,7 +151,9 @@ export default function FilesPage() {
   const filesParams = {
     ...(typeFilter !== "all" ? { type: typeFilter } : {}),
   };
-  const { data: files = [], isLoading, isError, error } = useFiles(filesParams);
+  const { data: filesData, isLoading, isError, error } = useFiles(filesParams);
+
+  const files = filesData?.data ?? [];
 
   // Mutations
   const deleteFile = useDeleteFile();
@@ -188,9 +176,9 @@ export default function FilesPage() {
 
   // Compute stat card values from real data
   const totalFiles = files.length;
-  const invoiceCount = files.filter((f) => f.type === "invoice").length;
-  const reportCount = files.filter((f) => f.type === "report").length;
-  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+  const invoiceCount = files.filter((f) => f.entity_type === "invoice").length;
+  const reportCount = files.filter((f) => f.entity_type === "report").length;
+  const totalSize = files.reduce((sum, f) => sum + (f.file_size ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -323,7 +311,7 @@ export default function FilesPage() {
             <DataTable
               columns={columns}
               data={files}
-              searchKey="name"
+              searchKey="original_filename"
               searchPlaceholder="Search files..."
             />
           )}

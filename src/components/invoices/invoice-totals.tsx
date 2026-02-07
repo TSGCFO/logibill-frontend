@@ -7,17 +7,17 @@ import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface InvoiceTotalsProps {
-  subtotal: number;
-  tax: number;
-  total: number;
+  subtotal: number | string;
+  tax_amount: number | string;
+  total_amount: number | string;
   currency?: string;
   className?: string;
 }
 
 export function InvoiceTotals({
   subtotal,
-  tax,
-  total,
+  tax_amount,
+  total_amount,
   currency = "USD",
   className,
 }: InvoiceTotalsProps) {
@@ -33,12 +33,12 @@ export function InvoiceTotals({
       </div>
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">Tax</span>
-        <span>{formatCurrency(tax, formatOptions)}</span>
+        <span>{formatCurrency(tax_amount, formatOptions)}</span>
       </div>
       <Separator className="my-2" />
       <div className="flex items-center justify-between font-medium">
         <span>Total</span>
-        <span className="text-lg">{formatCurrency(total, formatOptions)}</span>
+        <span className="text-lg">{formatCurrency(total_amount, formatOptions)}</span>
       </div>
     </div>
   );

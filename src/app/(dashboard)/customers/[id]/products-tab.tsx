@@ -25,10 +25,11 @@ const columns: ColumnDef<Product>[] = [
     ),
   },
   {
-    accessorKey: "name",
+    accessorKey: "description",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Name" />
+      <DataTableColumnHeader column={column} title="Description" />
     ),
+    cell: ({ row }) => row.original.description || "-",
   },
   {
     accessorKey: "category",
@@ -43,28 +44,32 @@ const columns: ColumnDef<Product>[] = [
       ),
   },
   {
-    accessorKey: "weight",
+    accessorKey: "weight_lb",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Weight" />
     ),
     cell: ({ row }) =>
-      row.original.weight ? `${row.original.weight} lbs` : "-",
+      row.original.weight_lb ? `${row.original.weight_lb} lbs` : "-",
   },
   {
-    accessorKey: "dimensions",
+    id: "dimensions",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Dimensions" />
     ),
-    cell: ({ row }) => row.original.dimensions || "-",
+    cell: ({ row }) => {
+      const p = row.original;
+      const dims = [p.length_in, p.width_in, p.height_in].filter(Boolean).join(" x ");
+      return dims ? `${dims} in` : "-";
+    },
   },
   {
-    accessorKey: "is_active",
+    accessorKey: "wms_is_active",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => (
-      <Badge variant={row.original.is_active ? "default" : "secondary"}>
-        {row.original.is_active ? "Active" : "Inactive"}
+      <Badge variant={row.original.wms_is_active ? "default" : "secondary"}>
+        {row.original.wms_is_active ? "Active" : "Inactive"}
       </Badge>
     ),
   },

@@ -105,12 +105,6 @@ const OPERATORS = [
   { value: "contains", label: "Contains" },
 ] as const;
 
-interface Condition {
-  field: string;
-  operator: string;
-  value: string;
-}
-
 export default function BillingConfigPage({
   params,
 }: {
@@ -132,98 +126,88 @@ export default function BillingConfigPage({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRule, setSelectedRule] = useState<BillingRuleWithDetails | null>(null);
 
-  // Form state
+  // Form state for creating/editing rule conditions
   const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    rule_type: "order_type" as string,
-    conditions: [] as Condition[],
-    actions: {} as Record<string, unknown>,
+    service_type_id: 0,
+    condition_type: "always" as string,
+    condition_value: {} as Record<string, unknown>,
+    applies_per: "order" as string,
+    max_per_order: null as number | null,
     priority: 1,
     is_active: true,
+    notes: "",
   });
 
   const [isSaving, setIsSaving] = useState(false);
 
   const resetForm = () => {
     setFormData({
-      name: "",
-      description: "",
-      rule_type: "order_type",
-      conditions: [],
-      actions: {},
+      service_type_id: 0,
+      condition_type: "always",
+      condition_value: {},
+      applies_per: "order",
+      max_per_order: null,
       priority: (rules?.length ?? 0) + 1,
       is_active: true,
+      notes: "",
     });
   };
 
   const handleCreateRule = async () => {
-    if (!formData.name.trim()) {
-      toast.error("Rule name is required");
+    if (!formData.service_type_id) {
+      toast.error("Service type is required");
       return;
     }
 
     setIsSaving(true);
     try {
-      const conditionsObj = formData.conditions.reduce((acc, cond) => {
-        acc[`${cond.field}_${cond.operator}`] = cond.value;
-        return acc;
-      }, {} as Record<string, unknown>);
-
       await createRule.mutateAsync({
         customer_id: Number(customerId),
-        rule_type: formData.rule_type as CreateCustomerBillingRuleData["rule_type"],
-        name: formData.name,
-        description: formData.description || null,
-        conditions: conditionsObj,
-        actions: formData.actions,
+        service_type_id: formData.service_type_id,
+        condition_type: formData.condition_type,
+        condition_value: formData.condition_value,
+        applies_per: formData.applies_per,
+        max_per_order: formData.max_per_order,
         priority: formData.priority,
         is_active: formData.is_active,
+        notes: formData.notes || null,
       });
 
-      toast.success("Rule created successfully");
+      toast.success("Rule condition created successfully");
       setCreateDialogOpen(false);
       resetForm();
     } catch {
-      toast.error("Failed to create rule");
+      toast.error("Failed to create rule condition");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleUpdateRule = async () => {
-    if (!selectedRule || !formData.name.trim()) {
-      toast.error("Rule name is required");
-      return;
-    }
+    if (!selectedRule) return;
 
     setIsSaving(true);
     try {
-      const conditionsObj = formData.conditions.reduce((acc, cond) => {
-        acc[`${cond.field}_${cond.operator}`] = cond.value;
-        return acc;
-      }, {} as Record<string, unknown>);
-
       await updateRule.mutateAsync({
         customerId,
         ruleId: selectedRule.id,
         data: {
-          rule_type: formData.rule_type as UpdateCustomerBillingRuleData["rule_type"],
-          name: formData.name,
-          description: formData.description || null,
-          conditions: conditionsObj,
-          actions: formData.actions,
+          condition_type: formData.condition_type,
+          condition_value: formData.condition_value,
+          applies_per: formData.applies_per,
+          max_per_order: formData.max_per_order,
           priority: formData.priority,
           is_active: formData.is_active,
+          notes: formData.notes || null,
         },
       });
 
-      toast.success("Rule updated successfully");
+      toast.success("Rule condition updated successfully");
       setEditDialogOpen(false);
       setSelectedRule(null);
       resetForm();
     } catch {
-      toast.error("Failed to update rule");
+      toast.error("Failed to update rule condition");
     } finally {
       setIsSaving(false);
     }
@@ -263,13 +247,14 @@ export default function BillingConfigPage({
   const openEditDialog = (rule: BillingRuleWithDetails) => {
     setSelectedRule(rule);
     setFormData({
-      name: rule.name,
-      description: rule.description || "",
-      rule_type: rule.rule_type,
-      conditions: [], // Parse from rule.conditions if needed
-      actions: rule.actions || {},
+      service_type_id: rule.service_type_id,
+      condition_type: rule.condition_type,
+      condition_value: rule.condition_value ?? {},
+      applies_per: rule.applies_per,
+      max_per_order: rule.max_per_order,
       priority: rule.priority || 1,
       is_active: rule.is_active,
+      notes: rule.notes || "",
     });
     setEditDialogOpen(true);
   };
@@ -277,29 +262,6 @@ export default function BillingConfigPage({
   const openDeleteDialog = (rule: BillingRuleWithDetails) => {
     setSelectedRule(rule);
     setDeleteDialogOpen(true);
-  };
-
-  const addCondition = () => {
-    setFormData((prev) => ({
-      ...prev,
-      conditions: [...prev.conditions, { field: "order_type", operator: "eq", value: "" }],
-    }));
-  };
-
-  const removeCondition = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      conditions: prev.conditions.filter((_, i) => i !== index),
-    }));
-  };
-
-  const updateCondition = (index: number, field: keyof Condition, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      conditions: prev.conditions.map((cond, i) =>
-        i === index ? { ...cond, [field]: value } : cond
-      ),
-    }));
   };
 
   const handleSave = async () => {
@@ -637,9 +599,6 @@ export default function BillingConfigPage({
           <RuleForm
             formData={formData}
             setFormData={setFormData}
-            addCondition={addCondition}
-            removeCondition={removeCondition}
-            updateCondition={updateCondition}
           />
 
           <DialogFooter>
@@ -651,7 +610,7 @@ export default function BillingConfigPage({
               Cancel
             </Button>
             <Button onClick={handleCreateRule} disabled={isSaving}>
-              {isSaving ? "Creating..." : "Create Rule"}
+              {isSaving ? "Creating..." : "Create Rule Condition"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -661,18 +620,15 @@ export default function BillingConfigPage({
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Edit Billing Rule</DialogTitle>
+            <DialogTitle>Edit Rule Condition</DialogTitle>
             <DialogDescription>
-              Update the billing rule configuration
+              Update the rule condition configuration
             </DialogDescription>
           </DialogHeader>
 
           <RuleForm
             formData={formData}
             setFormData={setFormData}
-            addCondition={addCondition}
-            removeCondition={removeCondition}
-            updateCondition={updateCondition}
           />
 
           <DialogFooter>
@@ -696,7 +652,7 @@ export default function BillingConfigPage({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Billing Rule?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{selectedRule?.name}&quot;? This action
+              Are you sure you want to delete this rule condition (#{selectedRule?.id})? This action
               cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -726,9 +682,6 @@ function RuleItem({
   onDelete: () => void;
   onToggle: () => void;
 }) {
-  const ruleTypeLabel =
-    RULE_TYPES.find((t) => t.value === rule.rule_type)?.label || rule.rule_type;
-
   return (
     <div
       className="flex items-center gap-4 p-4"
@@ -741,15 +694,16 @@ function RuleItem({
       <div className="flex-1 space-y-1">
         <div className="flex items-center gap-2">
           <span className={`font-medium ${!rule.is_active ? "text-muted-foreground" : ""}`}>
-            {rule.name}
+            {rule.service_type_name ?? `Service #${rule.service_type_id}`}
           </span>
-          <Badge variant="outline">{ruleTypeLabel}</Badge>
+          <Badge variant="outline">{rule.condition_type}</Badge>
+          <Badge variant="secondary">{rule.applies_per}</Badge>
           {!rule.is_active && (
             <Badge variant="secondary">Inactive</Badge>
           )}
         </div>
-        {rule.description && (
-          <p className="text-sm text-muted-foreground">{rule.description}</p>
+        {rule.notes && (
+          <p className="text-sm text-muted-foreground">{rule.notes}</p>
         )}
       </div>
       <Switch
@@ -795,62 +749,67 @@ function RuleItem({
   );
 }
 
-interface Condition {
-  field: string;
-  operator: string;
-  value: string;
-}
-
-interface FormData {
-  name: string;
-  description: string;
-  rule_type: string;
-  conditions: Condition[];
-  actions: Record<string, unknown>;
+interface ConditionFormData {
+  service_type_id: number;
+  condition_type: string;
+  condition_value: Record<string, unknown>;
+  applies_per: string;
+  max_per_order: number | null;
   priority: number;
   is_active: boolean;
+  notes: string;
 }
+
+// Condition type options
+const CONDITION_TYPES = [
+  { value: "always", label: "Always Apply" },
+  { value: "order_type_matches", label: "Order Type Matches" },
+  { value: "sku_matches", label: "SKU Matches" },
+  { value: "qty_threshold", label: "Quantity Threshold" },
+  { value: "package_count_threshold", label: "Package Count Threshold" },
+  { value: "sku_category_count", label: "SKU Category Count" },
+] as const;
+
+const APPLIES_PER_OPTIONS = [
+  { value: "order", label: "Per Order" },
+  { value: "item", label: "Per Item" },
+  { value: "package", label: "Per Package" },
+  { value: "unit", label: "Per Unit" },
+] as const;
 
 function RuleForm({
   formData,
   setFormData,
-  addCondition,
-  removeCondition,
-  updateCondition,
 }: {
-  formData: FormData;
-  setFormData: React.Dispatch<React.SetStateAction<FormData>>;
-  addCondition: () => void;
-  removeCondition: (index: number) => void;
-  updateCondition: (index: number, field: keyof Condition, value: string) => void;
+  formData: ConditionFormData;
+  setFormData: React.Dispatch<React.SetStateAction<ConditionFormData>>;
 }) {
-  const isConditional = formData.rule_type === "conditional";
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="rule-name">
-            Name <span className="text-destructive">*</span>
+          <Label htmlFor="service-type-id">
+            Service Type ID <span className="text-destructive">*</span>
           </Label>
           <Input
-            id="rule-name"
-            value={formData.name}
-            onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-            placeholder="Rule name"
+            id="service-type-id"
+            type="number"
+            value={formData.service_type_id || ""}
+            onChange={(e) => setFormData((prev) => ({ ...prev, service_type_id: Number(e.target.value) }))}
+            placeholder="Service type ID"
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="rule-type">Rule Type</Label>
+          <Label htmlFor="condition-type">Condition Type</Label>
           <Select
-            value={formData.rule_type}
-            onValueChange={(value) => setFormData((prev) => ({ ...prev, rule_type: value }))}
+            value={formData.condition_type}
+            onValueChange={(value) => setFormData((prev) => ({ ...prev, condition_type: value }))}
           >
-            <SelectTrigger id="rule-type">
+            <SelectTrigger id="condition-type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {RULE_TYPES.map((type) => (
+              {CONDITION_TYPES.map((type) => (
                 <SelectItem key={type.value} value={type.value}>
                   {type.label}
                 </SelectItem>
@@ -860,98 +819,50 @@ function RuleForm({
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="applies-per">Applies Per</Label>
+          <Select
+            value={formData.applies_per}
+            onValueChange={(value) => setFormData((prev) => ({ ...prev, applies_per: value }))}
+          >
+            <SelectTrigger id="applies-per">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {APPLIES_PER_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="max-per-order">Max Per Order</Label>
+          <Input
+            id="max-per-order"
+            type="number"
+            value={formData.max_per_order ?? ""}
+            onChange={(e) => setFormData((prev) => ({
+              ...prev,
+              max_per_order: e.target.value ? Number(e.target.value) : null,
+            }))}
+            placeholder="No limit"
+          />
+        </div>
+      </div>
+
       <div className="space-y-2">
-        <Label htmlFor="rule-description">Description</Label>
+        <Label htmlFor="rule-notes">Notes</Label>
         <Textarea
-          id="rule-description"
-          value={formData.description}
-          onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-          placeholder="Describe what this rule does..."
+          id="rule-notes"
+          value={formData.notes}
+          onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+          placeholder="Optional notes about this rule condition..."
           rows={2}
         />
       </div>
-
-      {isConditional && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label>Conditions</Label>
-            <Button type="button" variant="outline" size="sm" onClick={addCondition}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Condition
-            </Button>
-          </div>
-
-          {formData.conditions.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4 border rounded-lg">
-              No conditions added. Click &quot;Add Condition&quot; to define rule criteria.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {formData.conditions.map((condition, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-3 border rounded-lg"
-                  data-testid="condition-row"
-                >
-                  {index > 0 && (
-                    <Badge variant="secondary" className="mr-2">
-                      AND
-                    </Badge>
-                  )}
-                  <Select
-                    value={condition.field}
-                    onValueChange={(value) => updateCondition(index, "field", value)}
-                  >
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CONDITION_FIELDS.map((field) => (
-                        <SelectItem key={field.value} value={field.value}>
-                          {field.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select
-                    value={condition.operator}
-                    onValueChange={(value) => updateCondition(index, "operator", value)}
-                  >
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Operator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OPERATORS.map((op) => (
-                        <SelectItem key={op.value} value={op.value}>
-                          {op.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Input
-                    value={condition.value}
-                    onChange={(e) => updateCondition(index, "value", e.target.value)}
-                    placeholder="Value"
-                    className="flex-1"
-                  />
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeCondition(index)}
-                    aria-label="Remove condition"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="flex items-center gap-2">
         <Switch

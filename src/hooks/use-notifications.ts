@@ -74,19 +74,11 @@ function buildNotificationUrl(
   }
 }
 
-/** Build a human-readable title from activity data */
-function buildTitle(action: string, resourceType: string): string {
-  const readableType = resourceType.replace(/_/g, " ");
-  switch (action) {
-    case "create":
-      return `New ${readableType} created`;
-    case "update":
-      return `${readableType.charAt(0).toUpperCase() + readableType.slice(1)} updated`;
-    case "delete":
-      return `${readableType.charAt(0).toUpperCase() + readableType.slice(1)} deleted`;
-    default:
-      return `${readableType.charAt(0).toUpperCase() + readableType.slice(1)} ${action}`;
-  }
+/** Build a human-readable title from activity type */
+function buildTitle(type: string, resourceType: string): string {
+  // type is a backend activity type like "new_order", "invoice_created", etc.
+  const readable = type.replace(/_/g, " ");
+  return readable.charAt(0).toUpperCase() + readable.slice(1);
 }
 
 /** Convert an Activity from the API into our Notification shape */
@@ -94,28 +86,23 @@ function activityToNotification(
   activity: Activity,
   readIds: Set<string>
 ): Notification {
-  // The activity stream endpoint may return data with slightly different
-  // field names. We normalise both cases here.
-  const act = activity as Activity & {
-    action?: string;
-    resource_type?: string;
-    resource_id?: number | string;
-  };
+  const resourceType = activity.resource_type ?? "activity";
+  const resourceId = activity.resource_id ?? activity.id;
 
-  const action = act.action ?? act.type ?? "update";
-  const resourceType = act.resource_type ?? act.type ?? "activity";
-  const resourceId = act.resource_id ?? act.id;
+  // Build URL from resource_url if available, else construct from type
+  const url = activity.resource_url ?? buildNotificationUrl(resourceType, resourceId) ?? undefined;
 
   return {
-    id: String(act.id),
-    action,
+    id: activity.id,
+    type: activity.type,
+    message: activity.message || buildTitle(activity.type, resourceType),
+    timestamp: activity.timestamp,
+    customer_id: activity.customer_id ?? null,
+    customer_name: activity.customer_name ?? null,
     resource_type: resourceType,
     resource_id: resourceId,
-    title: act.title || buildTitle(action, resourceType),
-    description: act.description || "",
-    timestamp: act.timestamp,
-    read: readIds.has(String(act.id)),
-    url: buildNotificationUrl(resourceType, resourceId),
+    resource_url: url ?? null,
+    read: readIds.has(String(activity.id)),
   };
 }
 
@@ -202,7 +189,7 @@ export function useNotifications(): UseNotificationsReturn {
   const markAllRead = useCallback(() => {
     setReadIds((prev) => {
       const next = new Set(prev);
-      notifications.forEach((n) => next.add(n.id));
+      notifications.forEach((n) => next.add(String(n.id)));
       persistReadIds(next);
       return next;
     });

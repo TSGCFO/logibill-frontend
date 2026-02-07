@@ -30,7 +30,7 @@ export interface InvoicesParams {
   per_page?: number;
   customer_id?: number | string;
   status?: string;
-  period_id?: number | string;
+  billing_period_id?: number | string;
   search?: string;
   date_from?: string;
   date_to?: string;
@@ -42,39 +42,38 @@ export interface InvoiceWithLineItems extends Invoice {
 
 export interface CreateInvoiceData {
   customer_id: number;
-  period_id?: number;
-  issue_date?: string;
+  billing_period_id?: number;
+  invoice_date?: string;
   due_date?: string;
   notes?: string;
 }
 
 export interface UpdateInvoiceData {
   status?: Invoice["status"];
-  issue_date?: string;
+  invoice_date?: string;
   due_date?: string;
   notes?: string;
-  tax?: number;
+  tax_rate?: string;
 }
 
 export interface CreateLineItemData {
   description: string;
   quantity: number;
   unit_price: number;
-  charge_type: string;
-  reference_id?: string;
-  reference_type?: string;
+  service_type: string;
+  service_record_id?: number;
 }
 
 export interface UpdateLineItemData {
   description?: string;
   quantity?: number;
   unit_price?: number;
-  charge_type?: string;
+  service_type?: string;
 }
 
 export interface BulkCreateInvoicesData {
   customer_ids: number[];
-  period_id?: number;
+  billing_period_id?: number;
 }
 
 export interface BulkCreateInvoicesResult {
@@ -112,7 +111,7 @@ export function useInvoices(params: InvoicesParams = {}) {
         per_page: params.per_page,
         customer_id: params.customer_id,
         status: params.status,
-        period_id: params.period_id,
+        billing_period_id: params.billing_period_id,
         search: params.search,
         date_from: params.date_from,
         date_to: params.date_to,
@@ -171,25 +170,37 @@ export function useInvoiceLineItems(invoiceId: number | string) {
 
 /**
  * Get invoice PDF URL
- * This returns a URL that can be used to download or display the invoice PDF
+ * Backend returns JSON { pdf_url: string } from the PDF endpoint.
+ * We fetch that URL and provide helpers to open/download.
  */
 export function useInvoicePdf(invoiceId: number | string) {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const query = useQuery({
+    queryKey: invoiceKeys.pdf(invoiceId),
+    queryFn: async (): Promise<string | null> => {
+      const response = await api.get<{ pdf_url: string }>(
+        endpoints.invoices.pdf(invoiceId)
+      );
+      return response.data?.pdf_url ?? null;
+    },
+    enabled: !!invoiceId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const pdfUrl = query.data ?? "";
 
   return {
-    url: `${apiBase}${endpoints.invoices.pdf(invoiceId)}`,
+    url: pdfUrl,
+    isLoading: query.isLoading,
     // Helper to open PDF in new tab
     open: () => {
-      window.open(`${apiBase}${endpoints.invoices.pdf(invoiceId)}`, "_blank");
+      if (pdfUrl) {
+        window.open(pdfUrl, "_blank");
+      }
     },
     // Helper to download PDF
     download: async (filename?: string) => {
-      const response = await fetch(
-        `${apiBase}${endpoints.invoices.pdf(invoiceId)}`,
-        {
-          credentials: "include",
-        }
-      );
+      if (!pdfUrl) return;
+      const response = await fetch(pdfUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -526,7 +537,7 @@ export function usePrefetchInvoices() {
           per_page: params.per_page,
           customer_id: params.customer_id,
           status: params.status,
-          period_id: params.period_id,
+          billing_period_id: params.billing_period_id,
           search: params.search,
           date_from: params.date_from,
           date_to: params.date_to,

@@ -1,69 +1,33 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, endpoints } from "@/lib/api/client";
+import type {
+  SyncStatusItem,
+  SyncTriggerResponse,
+  AdminUser,
+  ConfigVersion,
+  PaginatedResponse,
+} from "@/types";
 
 // ============================================================================
-// Types
+// Re-export types for backward compatibility
 // ============================================================================
 
-export interface SyncStatus {
-  wms: {
-    last_sync_at: string | null;
-    status: "idle" | "running" | "completed" | "failed";
-    records_synced: number;
-    errors: string[] | null;
-  };
-  techship: {
-    last_sync_at: string | null;
-    status: "idle" | "running" | "completed" | "failed";
-    records_synced: number;
-    errors: string[] | null;
-  };
-}
-
-export interface SyncTriggerResponse {
-  message: string;
-  job_id: string;
-  estimated_duration_seconds: number;
-}
-
-export interface AdminUser {
-  id: string;
-  email: string;
-  role: "admin" | "customer" | "accountant" | "viewer";
-  customer_id: number | null;
-  company_id: number;
-  created_at: string;
-  last_login: string | null;
-  is_active: boolean;
-  name: string | null;
-}
+export type { SyncStatusItem, SyncTriggerResponse, AdminUser, ConfigVersion };
 
 export interface CreateUserData {
   email: string;
-  password: string;
+  display_name?: string;
+  supabase_user_id: string;
   role: "admin" | "customer" | "accountant" | "viewer";
   customer_id?: number | null;
-  name?: string;
 }
 
 export interface UpdateUserData {
   email?: string;
-  password?: string;
+  display_name?: string;
   role?: "admin" | "customer" | "accountant" | "viewer";
   customer_id?: number | null;
-  name?: string;
   is_active?: boolean;
-}
-
-export interface ConfigVersion {
-  id: number;
-  customer_id: number;
-  version: number;
-  config_data: Record<string, unknown>;
-  created_by: string;
-  created_at: string;
-  change_summary: string | null;
-  is_active: boolean;
 }
 
 // ============================================================================
@@ -74,7 +38,6 @@ export const adminKeys = {
   all: ["admin"] as const,
   syncStatus: () => [...adminKeys.all, "sync-status"] as const,
   users: () => [...adminKeys.all, "users"] as const,
-  user: (id: string) => [...adminKeys.all, "user", id] as const,
   configVersions: (customerId: number | string) =>
     [...adminKeys.all, "config-versions", customerId] as const,
 };
@@ -90,8 +53,8 @@ export const adminKeys = {
 export function useSyncStatus() {
   return useQuery({
     queryKey: adminKeys.syncStatus(),
-    queryFn: async (): Promise<SyncStatus> => {
-      const response = await api.get<SyncStatus>(endpoints.admin.syncStatus);
+    queryFn: async (): Promise<SyncStatusItem[]> => {
+      const response = await api.get<SyncStatusItem[]>(endpoints.admin.syncStatus);
       if (!response.data) {
         throw new Error("Failed to fetch sync status");
       }
@@ -321,31 +284,20 @@ export function useAdminUsers() {
   return useQuery({
     queryKey: adminKeys.users(),
     queryFn: async (): Promise<AdminUser[]> => {
-      const response = await api.get<AdminUser[]>(endpoints.admin.users);
-      return response.data ?? [];
+      const response = await api.get<PaginatedResponse<AdminUser> | AdminUser[]>(endpoints.admin.users);
+      // Backend returns paginated_response: { data: [...], meta: {...} }
+      const raw = response.data;
+      if (raw && "data" in raw && Array.isArray(raw.data)) {
+        return raw.data;
+      }
+      // Fallback if response is a plain array
+      return (raw as AdminUser[]) ?? [];
     },
     staleTime: 60000, // 1 minute
   });
 }
 
-/**
- * Fetch a single admin user by ID
- * GET /api/v1/admin/users/{id}
- */
-export function useAdminUser(id: string) {
-  return useQuery({
-    queryKey: adminKeys.user(id),
-    queryFn: async (): Promise<AdminUser> => {
-      const response = await api.get<AdminUser>(endpoints.admin.userDetail(id));
-      if (!response.data) {
-        throw new Error("User not found");
-      }
-      return response.data;
-    },
-    enabled: !!id,
-    staleTime: 60000, // 1 minute
-  });
-}
+// NOTE: GET /admin/users/{id} does not exist in backend. Use useAdminUsers() list with client-side filter.
 
 // ============================================================================
 // Admin Users Mutation Hooks
@@ -366,12 +318,9 @@ export function useCreateUser() {
       }
       return response.data;
     },
-    onSuccess: (newUser) => {
+    onSuccess: () => {
       // Invalidate users list
       queryClient.invalidateQueries({ queryKey: adminKeys.users() });
-
-      // Set the new user in cache
-      queryClient.setQueryData(adminKeys.user(newUser.id), newUser);
     },
   });
 }
@@ -400,12 +349,9 @@ export function useUpdateUser() {
       }
       return response.data;
     },
-    onSuccess: (updatedUser, { id }) => {
+    onSuccess: () => {
       // Invalidate users list
       queryClient.invalidateQueries({ queryKey: adminKeys.users() });
-
-      // Update the specific user in cache
-      queryClient.setQueryData(adminKeys.user(id), updatedUser);
     },
   });
 }
@@ -421,12 +367,9 @@ export function useDeleteUser() {
     mutationFn: async (id: string): Promise<void> => {
       await api.delete(endpoints.admin.userDetail(id));
     },
-    onSuccess: (_, deletedId) => {
+    onSuccess: () => {
       // Invalidate users list
       queryClient.invalidateQueries({ queryKey: adminKeys.users() });
-
-      // Remove the deleted user from cache
-      queryClient.removeQueries({ queryKey: adminKeys.user(deletedId) });
     },
   });
 }
@@ -443,10 +386,15 @@ export function useConfigVersions(customerId: number | string) {
   return useQuery({
     queryKey: adminKeys.configVersions(customerId),
     queryFn: async (): Promise<ConfigVersion[]> => {
-      const response = await api.get<ConfigVersion[]>(
+      const response = await api.get<PaginatedResponse<ConfigVersion> | ConfigVersion[]>(
         endpoints.admin.configVersions(customerId)
       );
-      return response.data ?? [];
+      // Backend returns paginated_response: { data: [...], meta: {...} }
+      const raw = response.data;
+      if (raw && "data" in raw && Array.isArray(raw.data)) {
+        return raw.data;
+      }
+      return (raw as ConfigVersion[]) ?? [];
     },
     enabled: !!customerId,
     staleTime: 60000, // 1 minute
@@ -470,8 +418,6 @@ export function useInvalidateAdmin() {
       queryClient.invalidateQueries({ queryKey: adminKeys.syncStatus() }),
     invalidateUsers: () =>
       queryClient.invalidateQueries({ queryKey: adminKeys.users() }),
-    invalidateUser: (id: string) =>
-      queryClient.invalidateQueries({ queryKey: adminKeys.user(id) }),
     invalidateConfigVersions: (customerId: number | string) =>
       queryClient.invalidateQueries({
         queryKey: adminKeys.configVersions(customerId),
@@ -489,8 +435,12 @@ export function usePrefetchAdminUsers() {
     queryClient.prefetchQuery({
       queryKey: adminKeys.users(),
       queryFn: async (): Promise<AdminUser[]> => {
-        const response = await api.get<AdminUser[]>(endpoints.admin.users);
-        return response.data ?? [];
+        const response = await api.get<PaginatedResponse<AdminUser> | AdminUser[]>(endpoints.admin.users);
+        const raw = response.data;
+        if (raw && "data" in raw && Array.isArray(raw.data)) {
+          return raw.data;
+        }
+        return (raw as AdminUser[]) ?? [];
       },
       staleTime: 60000,
     });
@@ -507,10 +457,14 @@ export function usePrefetchConfigVersions() {
     queryClient.prefetchQuery({
       queryKey: adminKeys.configVersions(customerId),
       queryFn: async (): Promise<ConfigVersion[]> => {
-        const response = await api.get<ConfigVersion[]>(
+        const response = await api.get<PaginatedResponse<ConfigVersion> | ConfigVersion[]>(
           endpoints.admin.configVersions(customerId)
         );
-        return response.data ?? [];
+        const raw = response.data;
+        if (raw && "data" in raw && Array.isArray(raw.data)) {
+          return raw.data;
+        }
+        return (raw as ConfigVersion[]) ?? [];
       },
       staleTime: 60000,
     });

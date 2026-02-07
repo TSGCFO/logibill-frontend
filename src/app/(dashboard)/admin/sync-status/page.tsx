@@ -56,7 +56,7 @@ import {
   useTriggerWmsSyncInventory,
   useTriggerWmsSyncProducts,
   useTriggerWmsSyncProductsAll,
-  type SyncStatus,
+  type SyncStatusItem,
 } from "@/hooks/use-admin";
 import { useCustomers } from "@/hooks/use-customers";
 
@@ -236,8 +236,9 @@ export default function SyncStatusPage() {
     );
   }
 
-  const wmsStatus = syncStatus?.wms;
-  const techshipStatus = syncStatus?.techship;
+  // Backend returns an array of SyncStatusItem, find by service name
+  const wmsStatus = syncStatus?.find((s) => s.service === "wms");
+  const techshipStatus = syncStatus?.find((s) => s.service === "techship");
 
   return (
     <div className="space-y-6">
@@ -272,7 +273,7 @@ export default function SyncStatusPage() {
                 {wmsStatus?.status === "completed" && <CheckCircle className="h-3 w-3" />}
                 {wmsStatus?.status === "running" && <RefreshCw className="h-3 w-3 animate-spin" />}
                 {wmsStatus?.status === "failed" && <XCircle className="h-3 w-3" />}
-                {wmsStatus?.last_sync_at ? "Connected" : "Not Synced"}
+                {wmsStatus?.last_sync ? "Connected" : "Not Synced"}
               </Badge>
             </div>
             <CardDescription>
@@ -284,8 +285,8 @@ export default function SyncStatusPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Last Sync</p>
                 <p className="font-medium">
-                  {wmsStatus?.last_sync_at
-                    ? formatDateTime(wmsStatus.last_sync_at)
+                  {wmsStatus?.last_sync
+                    ? formatDateTime(wmsStatus.last_sync)
                     : "Never"}
                 </p>
               </div>
@@ -355,7 +356,7 @@ export default function SyncStatusPage() {
                 {techshipStatus?.status === "completed" && <CheckCircle className="h-3 w-3" />}
                 {techshipStatus?.status === "running" && <RefreshCw className="h-3 w-3 animate-spin" />}
                 {techshipStatus?.status === "failed" && <XCircle className="h-3 w-3" />}
-                {techshipStatus?.last_sync_at ? "Connected" : "Not Synced"}
+                {techshipStatus?.last_sync ? "Connected" : "Not Synced"}
               </Badge>
             </div>
             <CardDescription>Shipping costs and tracking data</CardDescription>
@@ -365,8 +366,8 @@ export default function SyncStatusPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Last Sync</p>
                 <p className="font-medium">
-                  {techshipStatus?.last_sync_at
-                    ? formatDateTime(techshipStatus.last_sync_at)
+                  {techshipStatus?.last_sync
+                    ? formatDateTime(techshipStatus.last_sync)
                     : "Never"}
                 </p>
               </div>
@@ -450,7 +451,7 @@ export default function SyncStatusPage() {
               <SelectContent>
                 {customersData?.data.map((customer) => (
                   <SelectItem key={customer.id} value={String(customer.id)}>
-                    {customer.name} ({customer.code})
+                    {customer.name} ({customer.external_id || customer.id})
                   </SelectItem>
                 ))}
               </SelectContent>

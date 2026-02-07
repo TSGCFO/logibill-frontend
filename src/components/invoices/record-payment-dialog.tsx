@@ -63,8 +63,8 @@ export interface PaymentData {
 interface RecordPaymentDialogProps {
   invoiceId: string | number;
   invoiceNumber: string;
-  totalAmount: number;
-  amountDue: number;
+  totalAmount: number | string;
+  amountDue: number | string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRecord: (data: PaymentData) => Promise<void>;
@@ -81,12 +81,16 @@ export function RecordPaymentDialog({
 }: RecordPaymentDialogProps) {
   const [isLoading, setIsLoading] = React.useState(false);
 
+  // Parse string amounts to numbers
+  const numericTotalAmount = typeof totalAmount === "string" ? parseFloat(totalAmount) || 0 : totalAmount;
+  const numericAmountDue = typeof amountDue === "string" ? parseFloat(amountDue) || 0 : amountDue;
+
   const recordPaymentSchema = z.object({
     amount: z.preprocess(
       (val) => (val === '' || val === undefined ? 0 : Number(val)),
       z.number()
         .min(0.01, "Amount must be greater than 0")
-        .max(amountDue, `Amount cannot exceed the amount due (${formatCurrency(amountDue)})`)
+        .max(numericAmountDue, `Amount cannot exceed the amount due (${formatCurrency(numericAmountDue)})`)
     ),
     payment_date: z.date({
       message: "Please select a payment date",
@@ -102,7 +106,7 @@ export function RecordPaymentDialog({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(recordPaymentSchema) as any,
     defaultValues: {
-      amount: amountDue,
+      amount: numericAmountDue,
       payment_date: new Date(),
       payment_method: "",
       reference: "",
@@ -114,14 +118,14 @@ export function RecordPaymentDialog({
   React.useEffect(() => {
     if (open) {
       form.reset({
-        amount: amountDue,
+        amount: numericAmountDue,
         payment_date: new Date(),
         payment_method: "",
         reference: "",
         notes: "",
       });
     }
-  }, [open, amountDue, form]);
+  }, [open, numericAmountDue, form]);
 
   async function onSubmit(data: RecordPaymentFormValues) {
     setIsLoading(true);
@@ -144,7 +148,7 @@ export function RecordPaymentDialog({
   }
 
   const watchedAmount = form.watch("amount");
-  const remainingAfterPayment = amountDue - (watchedAmount || 0);
+  const remainingAfterPayment = numericAmountDue - (watchedAmount || 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -162,12 +166,12 @@ export function RecordPaymentDialog({
         <div className="rounded-md bg-muted p-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Invoice Total:</span>
-            <span className="font-medium">{formatCurrency(totalAmount)}</span>
+            <span className="font-medium">{formatCurrency(numericTotalAmount)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Amount Due:</span>
             <span className="font-medium text-destructive">
-              {formatCurrency(amountDue)}
+              {formatCurrency(numericAmountDue)}
             </span>
           </div>
           {watchedAmount > 0 && remainingAfterPayment >= 0 && (
@@ -207,7 +211,7 @@ export function RecordPaymentDialog({
                           type="number"
                           step="0.01"
                           min="0.01"
-                          max={amountDue}
+                          max={numericAmountDue}
                           className="pl-7"
                           placeholder="0.00"
                           {...field}

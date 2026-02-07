@@ -52,8 +52,8 @@ export function InvoiceLineItems({
     const editedValue = editingValues[lineItem.id]?.quantity;
     if (editedValue !== undefined) {
       const quantity = parseFloat(editedValue);
-      if (!isNaN(quantity) && quantity !== lineItem.quantity) {
-        onUpdate?.(lineItem.id, { quantity });
+      if (!isNaN(quantity) && quantity !== parseFloat(lineItem.quantity)) {
+        onUpdate?.(lineItem.id, { quantity: String(quantity) });
       }
       setEditingValues((prev) => {
         const updated = { ...prev };
@@ -72,8 +72,8 @@ export function InvoiceLineItems({
     const editedValue = editingValues[lineItem.id]?.unit_price;
     if (editedValue !== undefined) {
       const unit_price = parseFloat(editedValue);
-      if (!isNaN(unit_price) && unit_price !== lineItem.unit_price) {
-        onUpdate?.(lineItem.id, { unit_price });
+      if (!isNaN(unit_price) && unit_price !== parseFloat(lineItem.unit_price)) {
+        onUpdate?.(lineItem.id, { unit_price: String(unit_price) });
       }
       setEditingValues((prev) => {
         const updated = { ...prev };
@@ -110,7 +110,7 @@ export function InvoiceLineItems({
     }
   };
 
-  const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
+  const subtotal = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
   if (lineItems.length === 0) {
     return (
@@ -158,9 +158,9 @@ export function InvoiceLineItems({
               <TableCell>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-medium">{lineItem.description}</span>
-                  {lineItem.charge_type && (
+                  {lineItem.service_type && (
                     <span className="text-xs text-muted-foreground">
-                      {lineItem.charge_type}
+                      {lineItem.service_type}
                     </span>
                   )}
                 </div>

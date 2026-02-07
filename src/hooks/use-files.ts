@@ -1,5 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, endpoints } from "@/lib/api/client";
+import type { FileRecord, FileUploadResponse, PaginatedResponse } from "@/types";
+
+// Re-export types for consumers that imported from this file
+export type { FileRecord, FileUploadResponse };
 
 // ============================================================================
 // Query Keys Factory
@@ -15,30 +19,11 @@ export const filesKeys = {
 // Types
 // ============================================================================
 
-export interface FileRecord {
-  id: number;
-  name: string;
-  type: "invoice" | "report" | "import" | "export";
-  mime_type: string;
-  size: number;
-  uploaded_by: string;
-  uploaded_at: string;
-  customer_id?: number | null;
-  customer_code?: string | null;
-}
-
 export interface FilesParams {
   type?: string;
   page?: number;
   per_page?: number;
   search?: string;
-}
-
-export interface FileUploadResponse {
-  id: number;
-  name: string;
-  size: number;
-  uploaded_at: string;
 }
 
 // ============================================================================
@@ -48,14 +33,22 @@ export interface FileUploadResponse {
 export function useFiles(params: FilesParams = {}) {
   return useQuery({
     queryKey: filesKeys.list(params),
-    queryFn: async (): Promise<FileRecord[]> => {
+    queryFn: async (): Promise<PaginatedResponse<FileRecord>> => {
       const response = await api.get<FileRecord[]>(endpoints.files.list, {
         type: params.type,
         page: params.page,
         per_page: params.per_page,
         search: params.search,
       });
-      return response.data ?? [];
+      return {
+        data: response.data ?? [],
+        meta: response.meta ?? {
+          page: params.page ?? 1,
+          per_page: params.per_page ?? 50,
+          total: 0,
+          total_pages: 0,
+        },
+      };
     },
     staleTime: 30000,
   });

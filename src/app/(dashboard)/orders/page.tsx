@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { MoreHorizontal, Eye, Filter, FileDown, Receipt } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
@@ -93,21 +93,15 @@ const columns: ColumnDef<Order>[] = [
     },
   },
   {
-    accessorKey: "items_count",
+    accessorKey: "total_items",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Items" />
     ),
   },
   {
-    accessorKey: "packages_count",
+    accessorKey: "total_packages",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Packages" />
-    ),
-  },
-  {
-    accessorKey: "total_picks",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Picks" />
     ),
   },
   {
@@ -119,11 +113,12 @@ const columns: ColumnDef<Order>[] = [
       row.original.ship_date ? formatDate(row.original.ship_date) : "-",
   },
   {
-    accessorKey: "created_at",
+    accessorKey: "order_date",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Created" />
+      <DataTableColumnHeader column={column} title="Order Date" />
     ),
-    cell: ({ row }) => formatDate(row.original.created_at),
+    cell: ({ row }) =>
+      row.original.order_date ? formatDate(row.original.order_date) : "-",
   },
   {
     id: "actions",
@@ -265,11 +260,10 @@ export default function OrdersPage() {
           { key: "customer.name", label: "Customer" },
           { key: "order_type", label: "Type" },
           { key: "status", label: "Status" },
-          { key: "items_count", label: "Items" },
-          { key: "packages_count", label: "Packages" },
-          { key: "total_picks", label: "Picks" },
+          { key: "total_items", label: "Items" },
+          { key: "total_packages", label: "Packages" },
           { key: "ship_date", label: "Ship Date" },
-          { key: "created_at", label: "Created" },
+          { key: "order_date", label: "Order Date" },
         ]}
       />
     </div>

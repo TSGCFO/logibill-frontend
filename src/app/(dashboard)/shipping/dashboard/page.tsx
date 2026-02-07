@@ -84,6 +84,10 @@ function StatCard({
 export default function ShippingDashboardPage() {
   const { data: metrics, isLoading } = useShippingDashboard();
 
+  const statusEntries = metrics?.charges_by_status
+    ? Object.entries(metrics.charges_by_status)
+    : [];
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -93,14 +97,14 @@ export default function ShippingDashboardPage() {
             Shipping Dashboard
           </h1>
           <p className="text-muted-foreground">
-            Overview of shipping charges, markups, and client mappings
+            Overview of shipping charges, markups, and carrier accounts
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link href="/shipping/client-mapping">
               <LinkIcon className="mr-2 h-4 w-4" />
-              Client Mapping
+              Carrier Accounts
             </Link>
           </Button>
           <Button asChild>
@@ -116,7 +120,7 @@ export default function ShippingDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Charges"
-          value={formatCurrency(metrics?.total_charges ?? 0)}
+          value={formatCurrency(parseFloat(metrics?.total_charges ?? "0"))}
           description="All shipping charges"
           icon={DollarSign}
           href="/shipping/charges"
@@ -124,23 +128,23 @@ export default function ShippingDashboardPage() {
         />
         <StatCard
           title="Markup Revenue"
-          value={formatCurrency(metrics?.total_markup ?? 0)}
+          value={formatCurrency(parseFloat(metrics?.total_markup ?? "0"))}
           description="Total markup applied"
           icon={TrendingUp}
           isLoading={isLoading}
         />
         <StatCard
           title="Pending Charges"
-          value={formatNumber(metrics?.pending_charges ?? 0)}
-          description="Awaiting billing"
+          value={formatNumber(metrics?.pending_charges_count ?? 0)}
+          description={`${formatCurrency(parseFloat(metrics?.pending_charges_total ?? "0"))} awaiting billing`}
           icon={Clock}
           href="/shipping/charges"
           isLoading={isLoading}
         />
         <StatCard
-          title="Active Mappings"
-          value={formatNumber(metrics?.active_mappings ?? 0)}
-          description="Client integrations"
+          title="Active Accounts"
+          value={formatNumber(metrics?.active_mappings_count ?? 0)}
+          description="Carrier accounts"
           icon={LinkIcon}
           href="/shipping/client-mapping"
           isLoading={isLoading}
@@ -193,15 +197,15 @@ export default function ShippingDashboardPage() {
               </TableHeader>
               <TableBody>
                 {(metrics?.charges_by_carrier ?? []).map((item) => (
-                  <TableRow key={item.carrier}>
+                  <TableRow key={item.carrier_code}>
                     <TableCell className="font-medium">
-                      {item.carrier}
+                      {item.carrier_name || item.carrier_code}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatNumber(item.count)}
+                      {formatNumber(item.charge_count)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatCurrency(item.amount)}
+                      {formatCurrency(parseFloat(item.total_amount))}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -229,37 +233,37 @@ export default function ShippingDashboardPage() {
                 </div>
               ))}
             </div>
-          ) : (metrics?.charges_by_status ?? []).length === 0 ? (
+          ) : statusEntries.length === 0 ? (
             <div className="text-center py-8">
               <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground">No charge data available</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {(metrics?.charges_by_status ?? []).map((item) => (
+              {statusEntries.map(([status, data]) => (
                 <div
-                  key={item.status}
+                  key={status}
                   className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
                 >
                   <div className="flex items-center gap-3">
                     <Badge
                       variant={
-                        item.status === "billed"
+                        status === "billed"
                           ? "default"
-                          : item.status === "pending"
+                          : status === "pending"
                           ? "secondary"
                           : "destructive"
                       }
                     >
-                      {item.status}
+                      {status}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      {formatNumber(item.count)} charge
-                      {item.count !== 1 ? "s" : ""}
+                      {formatNumber(data.count)} charge
+                      {data.count !== 1 ? "s" : ""}
                     </span>
                   </div>
                   <span className="font-medium">
-                    {formatCurrency(item.amount)}
+                    {formatCurrency(parseFloat(data.total))}
                   </span>
                 </div>
               ))}
@@ -279,7 +283,7 @@ export default function ShippingDashboardPage() {
               </CardTitle>
               <CardDescription>
                 View and manage all shipping charges, mark as billed, and track
-                disputes
+                skipped charges
               </CardDescription>
             </CardHeader>
           </Link>
@@ -290,10 +294,10 @@ export default function ShippingDashboardPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <LinkIcon className="h-5 w-5" />
-                Client Mapping
+                Carrier Accounts
               </CardTitle>
               <CardDescription>
-                Map customers to TechShip client IDs for automated charge
+                Manage carrier accounts and their mappings for automated charge
                 matching
               </CardDescription>
             </CardHeader>

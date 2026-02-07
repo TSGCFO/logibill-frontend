@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import { useState } from "react";
 import {
   Plus,
   Pencil,
@@ -55,13 +54,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -80,14 +72,14 @@ import {
   useUpdateClientMapping,
   useDeleteClientMapping,
 } from "@/hooks/use-shipping";
-import { useCustomers } from "@/hooks/use-customers";
 import type { ShippingClientMapping } from "@/types";
 import { toast } from "sonner";
 
 const mappingFormSchema = z.object({
-  customer_id: z.string().min(1, "Customer is required"),
-  techship_client_id: z.string().min(1, "TechShip Client ID is required"),
-  techship_client_name: z.string().min(1, "TechShip Client Name is required"),
+  carrier_code: z.string().min(1, "Carrier code is required"),
+  carrier_name: z.string().min(1, "Carrier name is required"),
+  default_markup_percentage: z.string().optional(),
+  is_customer_owned: z.boolean(),
   is_active: z.boolean(),
 });
 
@@ -100,11 +92,7 @@ export default function ClientMappingPage() {
   const [deletingMapping, setDeletingMapping] =
     useState<ShippingClientMapping | null>(null);
 
-  const { data: customersData } = useCustomers({ per_page: 200 });
-  const customers = customersData?.data ?? [];
-
-  const { data: mappingsData, isLoading } = useShippingClientMappings();
-  const mappings = mappingsData?.data ?? [];
+  const { data: mappings = [], isLoading } = useShippingClientMappings();
 
   const createMapping = useCreateClientMapping();
   const updateMapping = useUpdateClientMapping();
@@ -113,18 +101,20 @@ export default function ClientMappingPage() {
   const form = useForm<MappingFormValues>({
     resolver: zodResolver(mappingFormSchema),
     defaultValues: {
-      customer_id: "",
-      techship_client_id: "",
-      techship_client_name: "",
+      carrier_code: "",
+      carrier_name: "",
+      default_markup_percentage: "",
+      is_customer_owned: false,
       is_active: true,
     },
   });
 
   const onSubmit = (data: MappingFormValues) => {
     const payload = {
-      customer_id: Number(data.customer_id),
-      techship_client_id: data.techship_client_id,
-      techship_client_name: data.techship_client_name,
+      carrier_code: data.carrier_code,
+      carrier_name: data.carrier_name,
+      default_markup_percentage: data.default_markup_percentage || undefined,
+      is_customer_owned: data.is_customer_owned,
       is_active: data.is_active,
     };
 
@@ -133,25 +123,25 @@ export default function ClientMappingPage() {
         { id: editingMapping.id, data: payload },
         {
           onSuccess: () => {
-            toast.success("Client mapping updated");
+            toast.success("Carrier account updated");
             setIsDialogOpen(false);
             setEditingMapping(null);
             form.reset();
           },
           onError: () => {
-            toast.error("Failed to update client mapping");
+            toast.error("Failed to update carrier account");
           },
         }
       );
     } else {
       createMapping.mutate(payload, {
         onSuccess: () => {
-          toast.success("Client mapping created");
+          toast.success("Carrier account created");
           setIsDialogOpen(false);
           form.reset();
         },
         onError: () => {
-          toast.error("Failed to create client mapping");
+          toast.error("Failed to create carrier account");
         },
       });
     }
@@ -160,9 +150,10 @@ export default function ClientMappingPage() {
   const handleEdit = (mapping: ShippingClientMapping) => {
     setEditingMapping(mapping);
     form.reset({
-      customer_id: String(mapping.customer_id),
-      techship_client_id: mapping.techship_client_id,
-      techship_client_name: mapping.techship_client_name,
+      carrier_code: mapping.account_code,
+      carrier_name: mapping.account_name ?? "",
+      default_markup_percentage: mapping.default_markup_percentage ?? "",
+      is_customer_owned: mapping.is_customer_owned ?? false,
       is_active: mapping.is_active,
     });
     setIsDialogOpen(true);
@@ -178,11 +169,11 @@ export default function ClientMappingPage() {
     if (!deletingMapping) return;
     deleteMapping.mutate(deletingMapping.id, {
       onSuccess: () => {
-        toast.success("Client mapping deleted");
+        toast.success("Carrier account deleted");
         setDeletingMapping(null);
       },
       onError: () => {
-        toast.error("Failed to delete client mapping");
+        toast.error("Failed to delete carrier account");
       },
     });
   };
@@ -192,26 +183,25 @@ export default function ClientMappingPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Client Mapping</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Carrier Accounts</h1>
           <p className="text-muted-foreground">
-            Map customers to TechShip client IDs for automated charge matching
+            Manage carrier accounts for automated shipping charge matching
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => handleCloseDialog()}>
               <Plus className="mr-2 h-4 w-4" />
-              Add Mapping
+              Add Carrier Account
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingMapping ? "Edit" : "Add"} Client Mapping
+                {editingMapping ? "Edit" : "Add"} Carrier Account
               </DialogTitle>
               <DialogDescription>
-                Configure the mapping between a customer and their TechShip
-                client account
+                Configure a carrier account for shipping charge reconciliation
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -221,32 +211,18 @@ export default function ClientMappingPage() {
               >
                 <FormField
                   control={form.control}
-                  name="customer_id"
+                  name="carrier_code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a customer" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem
-                              key={customer.id}
-                              value={String(customer.id)}
-                            >
-                              {customer.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Carrier Code *</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., FEDEX, UPS"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormDescription>
-                        The customer to link with TechShip
+                        Unique identifier for this carrier account
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -255,18 +231,18 @@ export default function ClientMappingPage() {
 
                 <FormField
                   control={form.control}
-                  name="techship_client_id"
+                  name="carrier_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>TechShip Client ID *</FormLabel>
+                      <FormLabel>Carrier Name *</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="e.g., TS-12345"
+                          placeholder="e.g., FedEx Ground"
                           {...field}
                         />
                       </FormControl>
                       <FormDescription>
-                        The client identifier in TechShip
+                        Display name for this carrier account
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -275,20 +251,43 @@ export default function ClientMappingPage() {
 
                 <FormField
                   control={form.control}
-                  name="techship_client_name"
+                  name="default_markup_percentage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>TechShip Client Name *</FormLabel>
+                      <FormLabel>Default Markup %</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="e.g., Acme Corp Shipping"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g., 15.00"
                           {...field}
                         />
                       </FormControl>
                       <FormDescription>
-                        Display name of the client in TechShip
+                        Default markup percentage applied to shipping charges
                       </FormDescription>
                       <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="is_customer_owned"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Customer Owned</FormLabel>
+                        <FormDescription>
+                          Whether this account is owned by the customer
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
                     </FormItem>
                   )}
                 />
@@ -301,7 +300,7 @@ export default function ClientMappingPage() {
                       <div className="space-y-0.5">
                         <FormLabel className="text-base">Active</FormLabel>
                         <FormDescription>
-                          Enable or disable this client mapping
+                          Enable or disable this carrier account
                         </FormDescription>
                       </div>
                       <FormControl>
@@ -331,7 +330,7 @@ export default function ClientMappingPage() {
                     {(createMapping.isPending || updateMapping.isPending) && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
-                    {editingMapping ? "Save Changes" : "Add Mapping"}
+                    {editingMapping ? "Save Changes" : "Add Account"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -343,10 +342,9 @@ export default function ClientMappingPage() {
       {/* Mappings Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Client Mappings</CardTitle>
+          <CardTitle>Carrier Accounts</CardTitle>
           <CardDescription>
-            Customer to TechShip client account mappings for automated shipping
-            charge reconciliation
+            Carrier accounts used for automated shipping charge reconciliation
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -358,9 +356,11 @@ export default function ClientMappingPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>TechShip Client ID</TableHead>
-                  <TableHead>TechShip Client Name</TableHead>
+                  <TableHead>Account Code</TableHead>
+                  <TableHead>Account Name</TableHead>
+                  <TableHead>Carrier</TableHead>
+                  <TableHead>Markup %</TableHead>
+                  <TableHead>Customer Owned</TableHead>
                   <TableHead>Active</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
@@ -368,15 +368,27 @@ export default function ClientMappingPage() {
               <TableBody>
                 {mappings.map((mapping) => (
                   <TableRow key={mapping.id}>
-                    <TableCell className="font-medium">
-                      {mapping.customer_name}
-                    </TableCell>
                     <TableCell>
                       <code className="text-sm bg-muted px-1.5 py-0.5 rounded">
-                        {mapping.techship_client_id}
+                        {mapping.account_code}
                       </code>
                     </TableCell>
-                    <TableCell>{mapping.techship_client_name}</TableCell>
+                    <TableCell className="font-medium">
+                      {mapping.account_name || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {mapping.techship_carrier_name || mapping.techship_carrier_code || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {mapping.default_markup_percentage
+                        ? `${mapping.default_markup_percentage}%`
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={mapping.is_customer_owned ? "default" : "secondary"}>
+                        {mapping.is_customer_owned ? "Yes" : "No"}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant={mapping.is_active ? "default" : "secondary"}
@@ -417,10 +429,10 @@ export default function ClientMappingPage() {
             <div className="text-center py-8">
               <LinkIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground">
-                No client mappings configured
+                No carrier accounts configured
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Add a mapping to link a customer with their TechShip account
+                Add a carrier account to enable automated shipping charge reconciliation
               </p>
             </div>
           )}
@@ -434,12 +446,12 @@ export default function ClientMappingPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Client Mapping</AlertDialogTitle>
+            <AlertDialogTitle>Delete Carrier Account</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the mapping for{" "}
-              <strong>{deletingMapping?.customer_name}</strong>? This action
+              Are you sure you want to delete the carrier account{" "}
+              <strong>{deletingMapping?.account_name || deletingMapping?.account_code}</strong>? This action
               cannot be undone. Shipping charges will no longer be automatically
-              matched for this customer.
+              matched for this carrier.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

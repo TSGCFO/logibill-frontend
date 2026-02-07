@@ -1,137 +1,18 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { Plus, MoreHorizontal, Eye, Edit, Upload } from "lucide-react";
-import { ColumnDef } from "@tanstack/react-table";
+import { Upload, Package, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { DataTable } from "@/components/tables/data-table";
-import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
-import type { Product, PaginatedResponse } from "@/types";
-
-const columns: ColumnDef<Product>[] = [
-  {
-    accessorKey: "sku",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="SKU" />
-    ),
-    cell: ({ row }) => (
-      <Link
-        href={`/products/${row.original.id}`}
-        className="font-mono font-medium hover:underline"
-      >
-        {row.original.sku}
-      </Link>
-    ),
-  },
-  {
-    accessorKey: "name",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Name" />
-    ),
-  },
-  {
-    accessorKey: "category",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Category" />
-    ),
-    cell: ({ row }) =>
-      row.original.category ? (
-        <Badge variant="outline">{row.original.category}</Badge>
-      ) : (
-        <span className="text-muted-foreground">-</span>
-      ),
-  },
-  {
-    accessorKey: "weight",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Weight" />
-    ),
-    cell: ({ row }) =>
-      row.original.weight ? `${row.original.weight} lbs` : "-",
-  },
-  {
-    accessorKey: "dimensions",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Dimensions" />
-    ),
-    cell: ({ row }) => row.original.dimensions || "-",
-  },
-  {
-    accessorKey: "is_active",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Status" />
-    ),
-    cell: ({ row }) => (
-      <Badge variant={row.original.is_active ? "default" : "secondary"}>
-        {row.original.is_active ? "Active" : "Inactive"}
-      </Badge>
-    ),
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const product = row.original;
-
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <Link href={`/products/${product.id}`}>
-                <Eye className="mr-2 h-4 w-4" />
-                View
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/products/${product.id}/edit`}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    },
-  },
-];
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function ProductsPage() {
-  const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: 20,
-  });
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["products", pagination],
-    queryFn: async () => {
-      const response = await api.get<PaginatedResponse<Product>>(
-        "/api/v1/products",
-        {
-          page: pagination.pageIndex + 1,
-          per_page: pagination.pageSize,
-        }
-      );
-      return response;
-    },
-  });
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -144,33 +25,74 @@ export default function ProductsPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" asChild>
-            <Link href="/products/upload">
+            <Link href="/products/bulk-upload">
               <Upload className="mr-2 h-4 w-4" />
               Bulk Upload
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/products/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
             </Link>
           </Button>
         </div>
       </div>
 
-      {/* Data Table */}
-      <DataTable
-        columns={columns}
-        data={data?.data?.data ?? []}
-        searchKey="sku"
-        searchPlaceholder="Search products..."
-        isLoading={isLoading}
-        pageCount={data?.data?.meta?.total_pages ?? 0}
-        pageIndex={pagination.pageIndex}
-        pageSize={pagination.pageSize}
-        onPaginationChange={setPagination}
-        manualPagination
-      />
+      <Alert>
+        <Package className="h-4 w-4" />
+        <AlertTitle>Products are synced from WMS</AlertTitle>
+        <AlertDescription>
+          Products are automatically synced from the Warehouse Management System
+          (WMS). Individual product CRUD operations are not available. To add
+          products in bulk, use the bulk upload feature. To view products for a
+          specific customer, visit their customer detail page.
+        </AlertDescription>
+      </Alert>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Bulk Upload</CardTitle>
+            <CardDescription>
+              Import multiple products at once from a CSV file
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-4">
+              <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mb-4">
+                Upload a CSV file with product data to create or update products
+                in bulk.
+              </p>
+              <Button asChild>
+                <Link href="/products/bulk-upload">
+                  Go to Bulk Upload
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Customer Products</CardTitle>
+            <CardDescription>
+              View products assigned to specific customers
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-4">
+              <Package className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mb-4">
+                Products are associated with customers. Visit a customer&apos;s
+                page to view and manage their product catalog.
+              </p>
+              <Button variant="outline" asChild>
+                <Link href="/customers">
+                  Browse Customers
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

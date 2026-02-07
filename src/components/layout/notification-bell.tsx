@@ -41,9 +41,9 @@ const MAX_DROPDOWN_ITEMS = 10;
 // Helpers
 // ============================================================================
 
-/** Get an icon component based on the notification resource type / action */
+/** Get an icon component based on the notification resource type / type */
 function getNotificationIcon(notification: Notification) {
-  const { resource_type, action } = notification;
+  const { resource_type, type } = notification;
 
   switch (resource_type) {
     case "invoice":
@@ -66,8 +66,8 @@ function getNotificationIcon(notification: Notification) {
     case "config":
       return <Settings className="h-4 w-4 text-gray-500" />;
     default:
-      // Fallback: use action-based icons
-      if (action === "delete") {
+      // Fallback: use type-based icons
+      if (type?.includes("delete") || type?.includes("voided")) {
         return <Activity className="h-4 w-4 text-red-500" />;
       }
       return <Activity className="h-4 w-4 text-muted-foreground" />;
@@ -135,13 +135,8 @@ function NotificationItem({
             !notification.read ? "font-medium" : "text-muted-foreground"
           )}
         >
-          {notification.title}
+          {notification.message}
         </p>
-        {notification.description && (
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {notification.description}
-          </p>
-        )}
         <p className="mt-1 text-xs text-muted-foreground/70">
           {formatRelativeTime(notification.timestamp)}
         </p>
@@ -176,12 +171,12 @@ export function NotificationBell() {
 
   const handleClickNotification = (notification: Notification) => {
     // Mark as read
-    markAsRead(notification.id);
+    markAsRead(String(notification.id));
 
     // Navigate if URL is available
-    if (notification.url) {
+    if (notification.resource_url) {
       setOpen(false);
-      router.push(notification.url);
+      router.push(notification.resource_url);
     }
   };
 

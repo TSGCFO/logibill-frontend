@@ -33,7 +33,7 @@ export const shippingKeys = {
 export interface ShippingChargesParams {
   page?: number;
   per_page?: number;
-  status?: "pending" | "billed" | "disputed";
+  status?: "pending" | "billed" | "skipped";
   search?: string;
   carrier_code?: string;
   customer_id?: number | string;
@@ -48,16 +48,18 @@ export interface ShippingClientMappingsParams {
 }
 
 export interface CreateClientMappingData {
-  customer_id: number;
-  techship_client_id: string;
-  techship_client_name: string;
+  carrier_code: string;
+  carrier_name: string;
+  default_markup_percentage?: string;
+  is_customer_owned?: boolean;
   is_active?: boolean;
 }
 
 export interface UpdateClientMappingData {
-  customer_id?: number;
-  techship_client_id?: string;
-  techship_client_name?: string;
+  carrier_code?: string;
+  carrier_name?: string;
+  default_markup_percentage?: string;
+  is_customer_owned?: boolean;
   is_active?: boolean;
 }
 
@@ -142,7 +144,7 @@ export function useMarkChargeAsBilled() {
     mutationFn: async (chargeId: number | string): Promise<ShippingCharge> => {
       const response = await api.put<ShippingCharge>(
         endpoints.shipping.chargeDetail(chargeId),
-        { status: "billed" }
+        { billed: true }
       );
       if (!response.data) throw new Error("Failed to mark charge as billed");
       return response.data;
@@ -167,24 +169,14 @@ export function useShippingClientMappings(
 ) {
   return useQuery({
     queryKey: shippingKeys.clientMappingsList(params),
-    queryFn: async (): Promise<PaginatedResponse<ShippingClientMapping>> => {
+    queryFn: async (): Promise<ShippingClientMapping[]> => {
       const response = await api.get<ShippingClientMapping[]>(
         endpoints.shipping.clientMapping,
         {
-          page: params.page,
-          per_page: params.per_page,
           is_active: params.is_active,
         }
       );
-      return {
-        data: response.data ?? [],
-        meta: response.meta ?? {
-          page: params.page ?? 1,
-          per_page: params.per_page ?? 50,
-          total: 0,
-          total_pages: 0,
-        },
-      };
+      return response.data ?? [];
     },
     staleTime: 60000,
   });

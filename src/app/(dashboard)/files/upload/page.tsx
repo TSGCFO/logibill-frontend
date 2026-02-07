@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCustomers } from "@/hooks/use-customers";
 import { createClient } from "@/lib/supabase/client";
+import { endpoints } from "@/lib/api/client";
 import { toast } from "sonner";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -61,8 +62,8 @@ export default function FileUploadPage() {
   const customers = customersData?.data ?? [];
 
   const [files, setFiles] = useState<FileToUpload[]>([]);
-  const [category, setCategory] = useState<string>("other");
-  const [customerId, setCustomerId] = useState<string>("");
+  const [entityType, setEntityType] = useState<string>("other");
+  const [entityId, setEntityId] = useState<string>("");
   const [description, setDescription] = useState("");
 
   const handleFileDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -107,8 +108,8 @@ export default function FileUploadPage() {
         try {
           const formData = new FormData();
           formData.append("file", fileItem.file);
-          formData.append("category", category);
-          if (customerId) formData.append("customer_id", customerId);
+          formData.append("entity_type", entityType);
+          if (entityId) formData.append("entity_id", entityId);
           if (description) formData.append("description", description);
 
           // Simulate upload progress
@@ -124,7 +125,7 @@ export default function FileUploadPage() {
           const { data: { session } } = await supabase.auth.getSession();
           const token = session?.access_token;
 
-          const response = await fetch(`${API_BASE}/api/v1/files`, {
+          const response = await fetch(`${API_BASE}${endpoints.files.upload}`, {
             method: "POST",
             headers: token ? { Authorization: `Bearer ${token}` } : {},
             body: formData,
@@ -285,7 +286,7 @@ export default function FileUploadPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={entityType} onValueChange={setEntityType}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -300,8 +301,8 @@ export default function FileUploadPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Customer (Optional)</Label>
-              <Select value={customerId} onValueChange={setCustomerId}>
+              <Label>Associated Customer (Optional)</Label>
+              <Select value={entityId} onValueChange={setEntityId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select customer" />
                 </SelectTrigger>

@@ -1,34 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, endpoints } from "@/lib/api/client";
 import { billingKeys } from "./use-billing";
+import type { AccrualStats, AccrualRun, AccrualRunResult } from "@/types";
 
 // ============================================================================
 // Types
 // ============================================================================
-
-export interface AccrualStats {
-  total_runs: number;
-  successful_runs: number;
-  failed_runs: number;
-  total_orders_processed: number;
-  total_charges_created: number;
-  last_run_at: string | null;
-  average_processing_time_ms: number | null;
-  charges_by_type?: Record<string, number>;
-}
-
-export interface AccrualRun {
-  id: number;
-  started_at: string;
-  completed_at: string | null;
-  status: "running" | "completed" | "failed";
-  orders_processed: number;
-  charges_created: number;
-  errors: string[] | null;
-  triggered_by: string | null;
-  customer_id: number | null;
-  processing_time_ms: number | null;
-}
 
 export interface AccrualStatsParams {
   dateFrom?: string;
@@ -36,12 +13,12 @@ export interface AccrualStatsParams {
 }
 
 export interface RunAccrualResponse {
-  run: AccrualRun;
+  run: AccrualRunResult;
   message: string;
 }
 
 export interface RunCustomerAccrualResponse {
-  run: AccrualRun;
+  run: AccrualRunResult;
   customer_id: number;
   message: string;
 }
@@ -62,7 +39,9 @@ export const accrualKeys = {
 // ============================================================================
 
 /**
- * Fetch accrual statistics with optional date range filter
+ * Fetch accrual statistics with optional date range filter.
+ * Backend returns AccrualStats: { date_from, date_to, total_charges, total_amount,
+ * total_orders, by_customer[], by_status[] }
  */
 export function useAccrualStats(params?: AccrualStatsParams) {
   return useQuery({
@@ -82,7 +61,10 @@ export function useAccrualStats(params?: AccrualStatsParams) {
 }
 
 /**
- * Fetch accrual runs history with optional limit
+ * Fetch accrual runs history with optional limit.
+ * Backend returns AccrualRun[]: { id, run_type, triggered_by, started_at,
+ * completed_at, duration_seconds, status, orders_processed, charges_created,
+ * charges_skipped, errors_count, errors_log }
  */
 export function useAccrualRuns(limit?: number) {
   return useQuery({
@@ -109,8 +91,8 @@ export function useRunAccrual() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (): Promise<RunAccrualResponse> => {
-      const response = await api.post<RunAccrualResponse>(endpoints.accrual.run);
+    mutationFn: async (): Promise<AccrualRunResult> => {
+      const response = await api.post<AccrualRunResult>(endpoints.accrual.run);
       if (!response.data) {
         throw new Error("Failed to run accrual");
       }
@@ -142,8 +124,8 @@ export function useRunCustomerAccrual() {
   return useMutation({
     mutationFn: async (
       customerId: number | string
-    ): Promise<RunCustomerAccrualResponse> => {
-      const response = await api.post<RunCustomerAccrualResponse>(
+    ): Promise<AccrualRunResult> => {
+      const response = await api.post<AccrualRunResult>(
         endpoints.accrual.customerRun(customerId)
       );
       if (!response.data) {

@@ -225,7 +225,7 @@ export default function BulkUploadPage() {
                   <SelectContent>
                     {customers?.map((customer) => (
                       <SelectItem key={customer.id} value={String(customer.id)}>
-                        {customer.name} ({customer.code})
+                        {customer.name} ({customer.external_id})
                       </SelectItem>
                     ))}
                   </SelectContent>

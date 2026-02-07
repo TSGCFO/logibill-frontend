@@ -81,14 +81,14 @@ export default function CustomerDetailPage({
               <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
               <Badge
                 variant={
-                  customer.status === "active"
+                  customer.billing_status === "active"
                     ? "default"
-                    : customer.status === "inactive"
+                    : customer.billing_status === "inactive"
                     ? "secondary"
                     : "destructive"
                 }
               >
-                {customer.status}
+                {customer.billing_status}
               </Badge>
               {isCurrentContext && (
                 <Tooltip>
@@ -104,7 +104,7 @@ export default function CustomerDetailPage({
                 </Tooltip>
               )}
             </div>
-            <p className="text-muted-foreground">Customer Code: {customer.code}</p>
+            <p className="text-muted-foreground">External ID: {customer.external_id || "-"}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -159,7 +159,7 @@ export default function CustomerDetailPage({
           </CardHeader>
           <CardContent>
             <p className="text-sm">
-              {customer.address || <span className="text-muted-foreground">No address</span>}
+              {[customer.address_line1, customer.city, customer.state_province, customer.postal_code].filter(Boolean).join(", ") || <span className="text-muted-foreground">No address</span>}
             </p>
           </CardContent>
         </Card>
@@ -200,30 +200,28 @@ export default function CustomerDetailPage({
           <CardContent>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <p className="text-sm font-medium">Billing Cadence</p>
+                <p className="text-sm font-medium">Billing Frequency</p>
                 <p className="text-sm text-muted-foreground capitalize">
-                  {billingConfig.billing_cadence}
+                  {billingConfig.billing_frequency}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium">Billing Day</p>
+                <p className="text-sm font-medium">Payment Terms</p>
                 <p className="text-sm text-muted-foreground">
-                  Day {billingConfig.billing_day}
+                  Net {billingConfig.payment_terms}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium">Auto Invoice</p>
-                <Badge variant={billingConfig.auto_invoice ? "default" : "secondary"}>
-                  {billingConfig.auto_invoice ? "Enabled" : "Disabled"}
+                <p className="text-sm font-medium">Auto Send Invoice</p>
+                <Badge variant={billingConfig.auto_send_invoice ? "default" : "secondary"}>
+                  {billingConfig.auto_send_invoice ? "Enabled" : "Disabled"}
                 </Badge>
               </div>
               <div>
-                <p className="text-sm font-medium">Included Charges</p>
-                <div className="flex gap-1 flex-wrap mt-1">
-                  {billingConfig.include_wms_charges && <Badge variant="outline">WMS</Badge>}
-                  {billingConfig.include_shipping_charges && <Badge variant="outline">Shipping</Badge>}
-                  {billingConfig.include_materials_charges && <Badge variant="outline">Materials</Badge>}
-                </div>
+                <p className="text-sm font-medium">Invoice Email</p>
+                <p className="text-sm text-muted-foreground">
+                  {billingConfig.invoice_email || "-"}
+                </p>
               </div>
             </div>
           </CardContent>

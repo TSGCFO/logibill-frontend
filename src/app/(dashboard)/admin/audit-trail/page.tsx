@@ -35,35 +35,50 @@ import { DataTable } from "@/components/tables/data-table";
 import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
 import { useAuditTrail, type AuditTrailParams } from "@/hooks/use-audit-trail";
 import { formatDateTime } from "@/lib/format";
-import type { AuditEntry, AuditAction } from "@/types";
+import type { AuditEntry } from "@/types";
 
 // ============================================================================
 // Action Badge Component
 // ============================================================================
 
-function ActionBadge({ action }: { action: AuditAction | string }) {
-  switch (action) {
-    case "create":
-      return (
-        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">
-          Create
-        </Badge>
-      );
-    case "update":
-      return (
-        <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100">
-          Update
-        </Badge>
-      );
-    case "delete":
-      return (
-        <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100">
-          Delete
-        </Badge>
-      );
-    default:
-      return <Badge variant="outline">{action}</Badge>;
+function TypeBadge({ type }: { type: string }) {
+  // Map backend activity types to colors
+  if (type.includes("new_order") || type.includes("created")) {
+    return (
+      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">
+        {type.replace(/_/g, " ")}
+      </Badge>
+    );
   }
+  if (type.includes("updated") || type.includes("customer_updated")) {
+    return (
+      <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100">
+        {type.replace(/_/g, " ")}
+      </Badge>
+    );
+  }
+  if (type.includes("deleted") || type.includes("voided")) {
+    return (
+      <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100">
+        {type.replace(/_/g, " ")}
+      </Badge>
+    );
+  }
+  if (type.includes("paid") || type.includes("invoice_paid")) {
+    return (
+      <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100">
+        {type.replace(/_/g, " ")}
+      </Badge>
+    );
+  }
+  if (type.includes("accrual")) {
+    return (
+      <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 hover:bg-orange-100">
+        {type.replace(/_/g, " ")}
+      </Badge>
+    );
+  }
+  return <Badge variant="outline">{type.replace(/_/g, " ")}</Badge>;
 }
 
 // ============================================================================
@@ -123,20 +138,20 @@ function exportAuditTrailCSV(entries: AuditEntry[]) {
   const headers = [
     "Timestamp",
     "User",
-    "Action",
+    "Type",
+    "Message",
     "Resource Type",
     "Resource ID",
-    "IP Address",
     "Details",
   ];
 
   const rows = entries.map((entry) => [
     entry.timestamp,
-    entry.user_email,
-    entry.action,
-    entry.resource_type,
-    entry.resource_id,
-    entry.ip_address ?? "",
+    entry.user_name ?? "",
+    entry.type,
+    entry.message,
+    entry.resource_type ?? "",
+    entry.resource_id ?? "",
     entry.details ? JSON.stringify(entry.details) : "",
   ]);
 
@@ -184,10 +199,13 @@ const RESOURCE_TYPES = [
   { value: "config", label: "Configuration" },
 ];
 
-const ACTION_TYPES: { value: AuditAction; label: string }[] = [
-  { value: "create", label: "Create" },
-  { value: "update", label: "Update" },
-  { value: "delete", label: "Delete" },
+const ACTIVITY_TYPES: { value: string; label: string }[] = [
+  { value: "new_order", label: "New Order" },
+  { value: "invoice_created", label: "Invoice Created" },
+  { value: "invoice_sent", label: "Invoice Sent" },
+  { value: "invoice_paid", label: "Invoice Paid" },
+  { value: "accrual_complete", label: "Accrual Complete" },
+  { value: "customer_updated", label: "Customer Updated" },
 ];
 
 // ============================================================================
@@ -198,7 +216,7 @@ export default function AuditTrailPage() {
   // Filter state
   const [page, setPage] = useState(1);
   const [userFilter, setUserFilter] = useState<string>("all");
-  const [actionFilter, setActionFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [resourceTypeFilter, setResourceTypeFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
@@ -208,15 +226,15 @@ export default function AuditTrailPage() {
     () => ({
       page,
       per_page: 20,
-      user_email: userFilter !== "all" ? userFilter : undefined,
-      action: actionFilter !== "all" ? actionFilter : undefined,
+      user_name: userFilter !== "all" ? userFilter : undefined,
+      type: typeFilter !== "all" ? typeFilter : undefined,
       resource_type: resourceTypeFilter !== "all" ? resourceTypeFilter : undefined,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
       sort_by: "timestamp",
       sort_order: "desc" as const,
     }),
-    [page, userFilter, actionFilter, resourceTypeFilter, dateFrom, dateTo]
+    [page, userFilter, typeFilter, resourceTypeFilter, dateFrom, dateTo]
   );
 
   // Data fetching
@@ -228,7 +246,7 @@ export default function AuditTrailPage() {
   const uniqueUsers = useMemo(() => {
     const users = new Set<string>();
     entries.forEach((entry) => {
-      if (entry.user_email) users.add(entry.user_email);
+      if (entry.user_name) users.add(entry.user_name);
     });
     return Array.from(users).sort();
   }, [entries]);
@@ -242,7 +260,7 @@ export default function AuditTrailPage() {
 
   const handleClearFilters = () => {
     setUserFilter("all");
-    setActionFilter("all");
+    setTypeFilter("all");
     setResourceTypeFilter("all");
     setDateFrom("");
     setDateTo("");
@@ -277,18 +295,18 @@ export default function AuditTrailPage() {
           ),
       },
       {
-        accessorKey: "user_email",
+        accessorKey: "user_name",
         header: "User",
         cell: ({ row }) => (
           <span className="text-sm truncate max-w-[180px] block">
-            {row.original.user_email || "-"}
+            {row.original.user_name || "-"}
           </span>
         ),
       },
       {
-        accessorKey: "action",
-        header: "Action",
-        cell: ({ row }) => <ActionBadge action={row.original.action} />,
+        accessorKey: "type",
+        header: "Type",
+        cell: ({ row }) => <TypeBadge type={row.original.type} />,
       },
       {
         accessorKey: "resource_type",
@@ -330,11 +348,11 @@ export default function AuditTrailPage() {
         },
       },
       {
-        accessorKey: "ip_address",
-        header: "IP Address",
+        accessorKey: "message",
+        header: "Message",
         cell: ({ row }) => (
-          <span className="text-sm font-mono text-muted-foreground">
-            {row.original.ip_address || "-"}
+          <span className="text-sm text-muted-foreground truncate max-w-[250px] block">
+            {row.original.message || "-"}
           </span>
         ),
       },
@@ -344,7 +362,7 @@ export default function AuditTrailPage() {
 
   const hasActiveFilters =
     userFilter !== "all" ||
-    actionFilter !== "all" ||
+    typeFilter !== "all" ||
     resourceTypeFilter !== "all" ||
     dateFrom !== "" ||
     dateTo !== "";
@@ -406,20 +424,20 @@ export default function AuditTrailPage() {
                 </SelectContent>
               </Select>
 
-              {/* Action filter */}
+              {/* Type filter */}
               <Select
-                value={actionFilter}
+                value={typeFilter}
                 onValueChange={(value) => {
-                  setActionFilter(value);
+                  setTypeFilter(value);
                   setPage(1);
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Action" />
+                  <SelectValue placeholder="Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Actions</SelectItem>
-                  {ACTION_TYPES.map((type) => (
+                  <SelectItem value="all">All Types</SelectItem>
+                  {ACTIVITY_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
                     </SelectItem>

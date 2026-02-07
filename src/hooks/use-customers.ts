@@ -58,24 +58,29 @@ export interface CustomerInvoicesParams {
 
 export interface CreateCustomerData {
   name: string;
-  code: string;
+  wms_customer_id: number;
+  wms_facility_id?: number;
+  external_id?: string | null;
   email?: string | null;
   phone?: string | null;
-  address?: string | null;
-  billing_email?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state_province?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  invoice_email?: string | null;
   payment_terms?: number;
-  status?: "active" | "inactive" | "suspended";
+  billing_status?: "active" | "inactive" | "suspended";
 }
 
 export interface UpdateCustomerData extends Partial<CreateCustomerData> {}
 
 export interface UpdateBillingConfigData {
-  billing_cadence?: "weekly" | "biweekly" | "monthly";
-  billing_day?: number;
-  auto_invoice?: boolean;
-  include_wms_charges?: boolean;
-  include_shipping_charges?: boolean;
-  include_materials_charges?: boolean;
+  billing_frequency?: "weekly" | "bi-weekly" | "monthly" | "semi-monthly";
+  payment_terms?: number;
+  invoice_email?: string | null;
+  auto_send_invoice?: boolean;
 }
 
 // ============================================================================

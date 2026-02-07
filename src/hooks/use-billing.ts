@@ -3,8 +3,10 @@ import { api, endpoints } from "@/lib/api/client";
 import type {
   BillingPeriod,
   UnbilledCharge,
-  BillingRule,
+  BillingRuleCondition,
+  CustomerBillingRuleConfig,
   AccrualRun,
+  AccrualRunResult,
   AccrualStats,
   DashboardMetrics,
   PaginatedResponse,
@@ -71,9 +73,9 @@ export interface BillingPeriodWithCharges extends BillingPeriod {
 
 export interface CreateBillingPeriodData {
   customer_id: number;
-  name?: string;
-  start_date: string;
-  end_date: string;
+  period_name?: string;
+  period_start: string;
+  period_end: string;
 }
 
 export interface UnbilledChargesParams {
@@ -83,27 +85,33 @@ export interface UnbilledChargesParams {
   date_to?: string;
 }
 
-export interface UpdateBillingRulesData {
-  rules: BillingRule[];
+export interface UpdateBillingRuleConfigData {
+  enable_multi_level_uom_picks?: boolean;
+  enable_order_type_detection?: boolean;
+  use_allocation_based_picks?: boolean;
+  order_type_detection_method?: string;
+  default_order_type?: string;
 }
 
-export interface CreateBillingRuleData {
-  rule_type: BillingRule["rule_type"];
-  name: string;
-  description?: string;
-  conditions: Record<string, unknown>;
-  actions: Record<string, unknown>;
-  priority?: number;
+export interface CreateBillingRuleConditionData {
+  service_type_id: number;
+  condition_type: string;
+  condition_value: Record<string, unknown>;
+  applies_per: string;
+  max_per_order?: number | null;
   is_active?: boolean;
+  priority?: number;
+  notes?: string;
 }
 
-export interface UpdateBillingRuleData {
-  name?: string;
-  description?: string;
-  conditions?: Record<string, unknown>;
-  actions?: Record<string, unknown>;
-  priority?: number;
+export interface UpdateBillingRuleConditionData {
+  condition_type?: string;
+  condition_value?: Record<string, unknown>;
+  applies_per?: string;
+  max_per_order?: number | null;
   is_active?: boolean;
+  priority?: number;
+  notes?: string;
 }
 
 export interface SandboxRequest {
@@ -111,15 +119,15 @@ export interface SandboxRequest {
   order_data: Record<string, unknown>;
 }
 
-export interface SandboxResult {
+export interface SandboxResultLocal {
   charges: {
-    type: string;
+    service_type: string;
     description: string;
-    amount: number;
-    rule_applied: string | null;
+    calculated_amount: string;
+    evaluation_details: Record<string, unknown> | null;
   }[];
-  total: number;
-  rules_evaluated: string[];
+  total_amount: string;
+  evaluation_trace: Record<string, unknown> | null;
 }
 
 export interface AccrualStatsParams {
@@ -381,38 +389,18 @@ export function useReopenPeriod(id: number | string) {
 // ============================================================================
 
 /**
- * Fetch unbilled charges, optionally filtered by customer
+ * Fetch unbilled charges, optionally filtered by customer.
+ * Backend returns { summary: UnbilledCharge[] } from /billing/unbilled.
  */
 export function useUnbilledCharges(customerId?: number | string) {
   return useQuery({
     queryKey: billingKeys.unbilled(customerId),
     queryFn: async (): Promise<UnbilledCharge[]> => {
-      // The /billing/unbilled endpoint returns { summary: [{customer_id, customer_name, unbilled_count, unbilled_total}, ...] }
-      // We map this to the UnbilledCharge[] shape the page expects
-      interface UnbilledSummaryItem {
-        customer_id: number;
-        customer_name: string;
-        unbilled_count: number;
-        unbilled_total: string;
-        oldest_charge_date: string | null;
-        newest_charge_date: string | null;
-      }
-      const response = await api.get<{ summary: UnbilledSummaryItem[] }>(
+      const response = await api.get<{ summary: UnbilledCharge[] }>(
         endpoints.billing.unbilled,
         customerId ? { customer_id: customerId } : {}
       );
-      const summary = response.data?.summary ?? [];
-      return summary.map((item) => ({
-        id: item.customer_id,
-        customer_id: item.customer_id,
-        order_id: null,
-        charge_type: "unbilled",
-        description: item.customer_name,
-        amount: parseFloat(item.unbilled_total) || 0,
-        quantity: item.unbilled_count,
-        unit_price: 0,
-        created_at: item.newest_charge_date ?? "",
-      }));
+      return response.data?.summary ?? [];
     },
     staleTime: 30000, // 30 seconds
   });
@@ -423,16 +411,20 @@ export function useUnbilledCharges(customerId?: number | string) {
 // ============================================================================
 
 /**
- * Fetch billing rules for a customer
+ * Fetch billing rule config for a customer.
+ * GET /billing/rules/{customerId} returns a CustomerBillingRuleConfig object.
  */
-export function useBillingRules(customerId: number | string) {
+export function useBillingRuleConfig(customerId: number | string) {
   return useQuery({
     queryKey: billingKeys.rules(customerId),
-    queryFn: async (): Promise<BillingRule[]> => {
-      const response = await api.get<BillingRule[]>(
+    queryFn: async (): Promise<CustomerBillingRuleConfig> => {
+      const response = await api.get<CustomerBillingRuleConfig>(
         endpoints.billing.rules(customerId)
       );
-      return response.data ?? [];
+      if (!response.data) {
+        throw new Error("Failed to fetch billing rule config");
+      }
+      return response.data;
     },
     enabled: !!customerId,
     staleTime: 60000, // 1 minute
@@ -444,43 +436,43 @@ export function useBillingRules(customerId: number | string) {
 // ============================================================================
 
 /**
- * Update billing rules for a customer (replace all rules)
+ * Update billing rule config for a customer
  */
-export function useUpdateBillingRules(customerId: number | string) {
+export function useUpdateBillingRuleConfig(customerId: number | string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: UpdateBillingRulesData): Promise<BillingRule[]> => {
-      const response = await api.put<BillingRule[]>(
+    mutationFn: async (data: UpdateBillingRuleConfigData): Promise<CustomerBillingRuleConfig> => {
+      const response = await api.put<CustomerBillingRuleConfig>(
         endpoints.billing.rules(customerId),
         data
       );
       if (!response.data) {
-        throw new Error("Failed to update billing rules");
+        throw new Error("Failed to update billing rule config");
       }
       return response.data;
     },
-    onSuccess: (updatedRules) => {
-      // Update the rules in cache
-      queryClient.setQueryData(billingKeys.rules(customerId), updatedRules);
+    onSuccess: (updatedConfig) => {
+      queryClient.setQueryData(billingKeys.rules(customerId), updatedConfig);
     },
   });
 }
 
 /**
- * Create a new billing rule for a customer
+ * Create a new billing rule condition for a customer
+ * POST /billing/rules/{customerId}/conditions
  */
-export function useCreateBillingRule(customerId: number | string) {
+export function useCreateBillingRuleCondition(customerId: number | string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: CreateBillingRuleData): Promise<BillingRule> => {
-      const response = await api.post<BillingRule>(
-        endpoints.billing.rules(customerId),
+    mutationFn: async (data: CreateBillingRuleConditionData): Promise<BillingRuleCondition> => {
+      const response = await api.post<BillingRuleCondition>(
+        `${endpoints.billing.rules(customerId)}/conditions`,
         data
       );
       if (!response.data) {
-        throw new Error("Failed to create billing rule");
+        throw new Error("Failed to create billing rule condition");
       }
       return response.data;
     },
@@ -491,25 +483,25 @@ export function useCreateBillingRule(customerId: number | string) {
 }
 
 /**
- * Update a specific billing rule
+ * Update a specific billing rule condition
  */
-export function useUpdateBillingRule(customerId: number | string) {
+export function useUpdateBillingRuleCondition(customerId: number | string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
-      ruleId,
+      conditionId,
       data,
     }: {
-      ruleId: number | string;
-      data: UpdateBillingRuleData;
-    }): Promise<BillingRule> => {
-      const response = await api.put<BillingRule>(
-        `${endpoints.billing.rules(customerId)}/${ruleId}`,
+      conditionId: number | string;
+      data: UpdateBillingRuleConditionData;
+    }): Promise<BillingRuleCondition> => {
+      const response = await api.put<BillingRuleCondition>(
+        `${endpoints.billing.rules(customerId)}/conditions/${conditionId}`,
         data
       );
       if (!response.data) {
-        throw new Error("Failed to update billing rule");
+        throw new Error("Failed to update billing rule condition");
       }
       return response.data;
     },
@@ -520,14 +512,14 @@ export function useUpdateBillingRule(customerId: number | string) {
 }
 
 /**
- * Delete a billing rule
+ * Delete a billing rule condition
  */
-export function useDeleteBillingRule(customerId: number | string) {
+export function useDeleteBillingRuleCondition(customerId: number | string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (ruleId: number | string): Promise<void> => {
-      await api.delete(`${endpoints.billing.rules(customerId)}/${ruleId}`);
+    mutationFn: async (conditionId: number | string): Promise<void> => {
+      await api.delete(`${endpoints.billing.rules(customerId)}/conditions/${conditionId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: billingKeys.rules(customerId) });
@@ -626,8 +618,8 @@ export function useGenerateBilling() {
  */
 export function useBillingSandbox() {
   return useMutation({
-    mutationFn: async (data: SandboxRequest): Promise<SandboxResult> => {
-      const response = await api.post<SandboxResult>(
+    mutationFn: async (data: SandboxRequest): Promise<SandboxResultLocal> => {
+      const response = await api.post<SandboxResultLocal>(
         endpoints.billing.sandbox,
         data
       );
@@ -644,43 +636,22 @@ export function useBillingSandbox() {
 // ============================================================================
 
 /**
- * Fetch accrual statistics.
- *
- * The backend /accrual/stats returns charge-level aggregates
- * (total_charges, total_amount, by_customer, by_status) but the frontend
- * AccrualStats type expects run-level stats (total_runs, successful_runs, last_run_at, etc.).
- * We derive run-level stats from the /accrual/runs endpoint instead.
+ * Fetch accrual statistics from /accrual/stats.
+ * Returns AccrualStats with total_charges, total_amount, total_orders,
+ * by_customer[], by_status[].
  */
 export function useAccrualStats(params: AccrualStatsParams = {}) {
   return useQuery({
     queryKey: accrualKeys.stats(params),
     queryFn: async (): Promise<AccrualStats> => {
-      // Fetch recent accrual runs to derive stats
-      const response = await api.get<AccrualRun[]>(endpoints.accrual.runs, {
-        limit: 100,
+      const response = await api.get<AccrualStats>(endpoints.accrual.stats, {
+        date_from: params.date_from,
+        date_to: params.date_to,
       });
-      const runs = Array.isArray(response.data) ? response.data : [];
-
-      const completedRuns = runs.filter((r) => r.status === "completed");
-      const failedRuns = runs.filter((r) => r.status === "failed");
-      const totalOrders = runs.reduce(
-        (sum, r) => sum + (r.orders_processed ?? 0),
-        0
-      );
-      const totalCharges = runs.reduce(
-        (sum, r) => sum + (r.charges_created ?? 0),
-        0
-      );
-      const lastRun = runs.length > 0 ? runs[0] : null;
-
-      return {
-        total_runs: runs.length,
-        successful_runs: completedRuns.length,
-        failed_runs: failedRuns.length,
-        total_orders_processed: totalOrders,
-        total_charges_created: totalCharges,
-        last_run_at: lastRun?.started_at ?? null,
-      };
+      if (!response.data) {
+        throw new Error("Failed to fetch accrual stats");
+      }
+      return response.data;
     },
     staleTime: 60000, // 1 minute
   });
@@ -713,8 +684,8 @@ export function useRunAccrual() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (): Promise<AccrualRun> => {
-      const response = await api.post<AccrualRun>(endpoints.accrual.run);
+    mutationFn: async (): Promise<AccrualRunResult> => {
+      const response = await api.post<AccrualRunResult>(endpoints.accrual.run);
       if (!response.data) {
         throw new Error("Failed to run accrual");
       }
@@ -740,8 +711,8 @@ export function useRunCustomerAccrual() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (customerId: number | string): Promise<AccrualRun> => {
-      const response = await api.post<AccrualRun>(
+    mutationFn: async (customerId: number | string): Promise<AccrualRunResult> => {
+      const response = await api.post<AccrualRunResult>(
         endpoints.accrual.customerRun(customerId)
       );
       if (!response.data) {

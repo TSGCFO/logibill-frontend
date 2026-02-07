@@ -48,22 +48,22 @@ export function MaterialsGlobalTable({
       cell: ({ row }) => row.original.box_size || "-",
     },
     {
-      accessorKey: "unit_cost",
+      accessorKey: "cost_per_unit",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Price" />
       ),
       cell: ({ row }) => (
         <span className="font-medium">
-          {formatCurrency(row.original.unit_cost)}
+          {formatCurrency(parseFloat(row.original.cost_per_unit) || 0)}
         </span>
       ),
     },
     {
-      accessorKey: "effective_date",
+      accessorKey: "effective_from",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Effective Date" />
       ),
-      cell: ({ row }) => formatDate(row.original.effective_date),
+      cell: ({ row }) => formatDate(row.original.effective_from),
     },
     {
       id: "actions",

@@ -18,26 +18,15 @@ import { formatDateTime, formatCurrency } from "@/lib/format";
 
 export interface MaterialsAuditEntry {
   id: string;
-  timestamp: string;
-  user_email: string;
-  user_name?: string;
+  changed_at: string;
+  changed_by: string;
   action: "create" | "update" | "delete";
-  resource_type: string;
-  resource_id: string;
+  table_name: string;
+  record_id: string | number;
   material_type?: string;
   customer_name?: string;
-  old_value?: {
-    unit_cost?: number;
-    box_size?: string;
-    effective_date?: string;
-    [key: string]: unknown;
-  };
-  new_value?: {
-    unit_cost?: number;
-    box_size?: string;
-    effective_date?: string;
-    [key: string]: unknown;
-  };
+  old_values?: Record<string, unknown>;
+  new_values?: Record<string, unknown>;
 }
 
 interface MaterialsAuditLogProps {
@@ -73,18 +62,18 @@ function formatChangeValue(value: unknown): string {
 function ChangesCell({ entry }: { entry: MaterialsAuditEntry }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  if (!entry.old_value && !entry.new_value) {
+  if (!entry.old_values && !entry.new_values) {
     return <span className="text-muted-foreground">-</span>;
   }
 
   const allKeys = new Set([
-    ...Object.keys(entry.old_value || {}),
-    ...Object.keys(entry.new_value || {}),
+    ...Object.keys(entry.old_values || {}),
+    ...Object.keys(entry.new_values || {}),
   ]);
 
   const changes = Array.from(allKeys).filter((key) => {
-    const oldVal = entry.old_value?.[key];
-    const newVal = entry.new_value?.[key];
+    const oldVal = entry.old_values?.[key];
+    const newVal = entry.new_values?.[key];
     return oldVal !== newVal;
   });
 
@@ -115,14 +104,14 @@ function ChangesCell({ entry }: { entry: MaterialsAuditEntry }) {
             {entry.action !== "create" && (
               <>
                 <span className="text-destructive line-through">
-                  {formatChangeValue(entry.old_value?.[key])}
+                  {formatChangeValue(entry.old_values?.[key])}
                 </span>
-                <span className="mx-1">→</span>
+                <span className="mx-1">{"->"}</span>
               </>
             )}
             {entry.action !== "delete" && (
               <span className="text-primary">
-                {formatChangeValue(entry.new_value?.[key])}
+                {formatChangeValue(entry.new_values?.[key])}
               </span>
             )}
           </div>
@@ -141,7 +130,7 @@ export function MaterialsAuditLog({
 
   const filteredEntries = useMemo(() => {
     return entries.filter((entry) => {
-      const entryDate = new Date(entry.timestamp);
+      const entryDate = new Date(entry.changed_at);
 
       if (startDate) {
         const start = new Date(startDate);
@@ -161,39 +150,26 @@ export function MaterialsAuditLog({
 
   const columns: ColumnDef<MaterialsAuditEntry>[] = [
     {
-      accessorKey: "timestamp",
+      accessorKey: "changed_at",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Timestamp" />
       ),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{formatDateTime(row.original.timestamp)}</span>
+          <span className="text-sm">{formatDateTime(row.original.changed_at)}</span>
         </div>
       ),
     },
     {
-      accessorKey: "user_email",
+      accessorKey: "changed_by",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="User" />
       ),
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <User className="h-4 w-4 text-muted-foreground" />
-          <div>
-            {row.original.user_name && (
-              <span className="font-medium">{row.original.user_name}</span>
-            )}
-            <span
-              className={
-                row.original.user_name
-                  ? "text-muted-foreground text-sm block"
-                  : ""
-              }
-            >
-              {row.original.user_email}
-            </span>
-          </div>
+          <span>{row.original.changed_by}</span>
         </div>
       ),
     },
@@ -209,13 +185,13 @@ export function MaterialsAuditLog({
       ),
     },
     {
-      accessorKey: "resource_type",
+      accessorKey: "table_name",
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Resource" />
       ),
       cell: ({ row }) => (
         <div>
-          <p className="font-medium">{row.original.resource_type}</p>
+          <p className="font-medium">{row.original.table_name}</p>
           {row.original.material_type && (
             <p className="text-sm text-muted-foreground">
               {row.original.material_type}
@@ -276,7 +252,7 @@ export function MaterialsAuditLog({
       <DataTable
         columns={columns}
         data={filteredEntries}
-        searchKey="user_email"
+        searchKey="changed_by"
         searchPlaceholder="Search by user..."
         isLoading={isLoading}
       />

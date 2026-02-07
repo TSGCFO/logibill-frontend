@@ -7,11 +7,8 @@ import {
   ArrowLeft,
   Package,
   Truck,
-  MapPin,
-  Calendar,
   Hash,
   Boxes,
-  Scale,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,8 +30,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useOrder, useOrderItems, useOrderPackages } from "@/hooks/use-orders";
-import { formatDate, formatCurrency, formatNumber } from "@/lib/format";
+import { useOrder } from "@/hooks/use-orders";
+import { formatDate, formatCurrency } from "@/lib/format";
 
 export default function OrderDetailPage({
   params,
@@ -43,8 +40,9 @@ export default function OrderDetailPage({
 }) {
   const { id } = use(params);
   const { data: order, isLoading, error } = useOrder(id);
-  const { data: items, isLoading: itemsLoading } = useOrderItems(id);
-  const { data: packages, isLoading: packagesLoading } = useOrderPackages(id);
+  // Items and packages are embedded in the order detail response
+  const items = order?.items;
+  const packages = order?.packages;
 
   if (error) {
     notFound();
@@ -117,7 +115,7 @@ export default function OrderDetailPage({
             <Boxes className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{order.items_count}</div>
+            <div className="text-2xl font-bold">{order.total_items ?? 0}</div>
           </CardContent>
         </Card>
 
@@ -127,17 +125,17 @@ export default function OrderDetailPage({
             <Truck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{order.packages_count}</div>
+            <div className="text-2xl font-bold">{order.total_packages ?? 0}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Picks</CardTitle>
+            <CardTitle className="text-sm font-medium">Billed</CardTitle>
             <Hash className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{order.total_picks}</div>
+            <div className="text-2xl font-bold">{order.is_billed ? "Yes" : "No"}</div>
           </CardContent>
         </Card>
       </div>
@@ -155,8 +153,8 @@ export default function OrderDetailPage({
             </div>
             <Separator />
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Created</span>
-              <span>{formatDate(order.created_at)}</span>
+              <span className="text-muted-foreground">Order Date</span>
+              <span>{order.order_date ? formatDate(order.order_date) : "-"}</span>
             </div>
             {order.ship_date && (
               <div className="flex justify-between">
@@ -164,10 +162,12 @@ export default function OrderDetailPage({
                 <span>{formatDate(order.ship_date)}</span>
               </div>
             )}
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Last Updated</span>
-              <span>{formatDate(order.updated_at)}</span>
-            </div>
+            {order.updated_at && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Last Updated</span>
+                <span>{formatDate(order.updated_at)}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -184,9 +184,9 @@ export default function OrderDetailPage({
                 >
                   {order.customer?.name || `Customer #${order.customer_id}`}
                 </Link>
-                {order.customer?.email && (
+                {order.customer?.external_id && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    {order.customer.email}
+                    {order.customer.external_id}
                   </p>
                 )}
               </div>
@@ -205,11 +205,11 @@ export default function OrderDetailPage({
         <TabsList>
           <TabsTrigger value="items">
             <Boxes className="mr-2 h-4 w-4" />
-            Items ({order.items_count})
+            Items ({order.total_items ?? 0})
           </TabsTrigger>
           <TabsTrigger value="packages">
             <Truck className="mr-2 h-4 w-4" />
-            Packages ({order.packages_count})
+            Packages ({order.total_packages ?? 0})
           </TabsTrigger>
         </TabsList>
 
@@ -233,23 +233,13 @@ export default function OrderDetailPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {itemsLoading ? (
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : items && items.length > 0 ? (
+                  {items && items.length > 0 ? (
                     items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-mono font-medium">
                           {item.sku}
                         </TableCell>
-                        <TableCell>{item.description || "-"}</TableCell>
+                        <TableCell>{item.product_name || "-"}</TableCell>
                         <TableCell className="text-right">
                           {item.quantity_ordered}
                         </TableCell>
@@ -294,36 +284,28 @@ export default function OrderDetailPage({
                     <TableHead>Service</TableHead>
                     <TableHead className="text-right">Weight</TableHead>
                     <TableHead>Dimensions</TableHead>
-                    <TableHead className="text-right">Shipping Cost</TableHead>
+                    <TableHead className="text-right">Billable Weight</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {packagesLoading ? (
-                    Array.from({ length: 2 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : packages && packages.length > 0 ? (
+                  {packages && packages.length > 0 ? (
                     packages.map((pkg) => (
                       <TableRow key={pkg.id}>
                         <TableCell className="font-mono">
                           {pkg.tracking_number || "-"}
                         </TableCell>
                         <TableCell>{pkg.carrier || "-"}</TableCell>
-                        <TableCell>{pkg.service || "-"}</TableCell>
+                        <TableCell>{pkg.service_type || "-"}</TableCell>
                         <TableCell className="text-right">
                           {pkg.weight ? `${pkg.weight} lbs` : "-"}
                         </TableCell>
-                        <TableCell>{pkg.dimensions || "-"}</TableCell>
+                        <TableCell>
+                          {[pkg.length, pkg.width, pkg.height].filter(Boolean).join(" x ") || "-"}
+                          {pkg.length ? " in" : ""}
+                        </TableCell>
                         <TableCell className="text-right">
-                          {pkg.shipping_cost
-                            ? formatCurrency(pkg.shipping_cost)
+                          {pkg.billable_weight_lb
+                            ? `${pkg.billable_weight_lb} lbs`
                             : "-"}
                         </TableCell>
                       </TableRow>

@@ -56,16 +56,18 @@ interface ParsedRow {
 // Required and optional headers matching the Product type
 const TEMPLATE_HEADERS = [
   "sku",
-  "name",
-  "description",
-  "category",
   "customer_id",
-  "weight",
-  "dimensions",
-  "is_active",
+  "description",
+  "weight_lb",
+  "length_in",
+  "width_in",
+  "height_in",
+  "upc",
+  "cost",
+  "price",
 ] as const;
 
-const REQUIRED_HEADERS = ["sku", "name"] as const;
+const REQUIRED_HEADERS = ["sku", "customer_id"] as const;
 
 // ============================================================================
 // CSV Parsing Utilities
@@ -213,36 +215,14 @@ function validateParsedData(
       skuSet.add(normalizedSku);
     }
 
-    if (!data.name || data.name.trim().length === 0) {
+    if (!data.customer_id || data.customer_id.trim().length === 0) {
       errors.push({
         row: rowNumber,
-        field: "name",
-        message: "Name is required",
-        value: data.name,
+        field: "customer_id",
+        message: "Customer ID is required",
+        value: data.customer_id,
       });
-    }
-
-    // Numeric field checks
-    if (data.weight && data.weight.trim().length > 0) {
-      const weight = Number(data.weight);
-      if (isNaN(weight)) {
-        errors.push({
-          row: rowNumber,
-          field: "weight",
-          message: "Weight must be a number",
-          value: data.weight,
-        });
-      } else if (weight < 0) {
-        errors.push({
-          row: rowNumber,
-          field: "weight",
-          message: "Weight cannot be negative",
-          value: data.weight,
-        });
-      }
-    }
-
-    if (data.customer_id && data.customer_id.trim().length > 0) {
+    } else {
       const customerId = Number(data.customer_id);
       if (isNaN(customerId) || !Number.isInteger(customerId) || customerId <= 0) {
         errors.push({
@@ -254,15 +234,22 @@ function validateParsedData(
       }
     }
 
-    // Boolean field checks
-    if (data.is_active && data.is_active.trim().length > 0) {
-      const val = data.is_active.trim().toLowerCase();
-      if (!["true", "false", "1", "0", "yes", "no"].includes(val)) {
-        warnings.push({
+    // Numeric field checks
+    if (data.weight_lb && data.weight_lb.trim().length > 0) {
+      const weight = Number(data.weight_lb);
+      if (isNaN(weight)) {
+        errors.push({
           row: rowNumber,
-          field: "is_active",
-          message: `Unrecognized value "${data.is_active}" for is_active; expected true/false/1/0/yes/no`,
-          value: data.is_active,
+          field: "weight_lb",
+          message: "Weight must be a number",
+          value: data.weight_lb,
+        });
+      } else if (weight < 0) {
+        errors.push({
+          row: rowNumber,
+          field: "weight_lb",
+          message: "Weight cannot be negative",
+          value: data.weight_lb,
         });
       }
     }
@@ -501,23 +488,23 @@ function ResultsSummary({
   result: {
     success: boolean;
     total_rows: number;
-    created: number;
-    updated: number;
-    failed: number;
+    products_created: number;
+    products_updated: number;
+    invalid_rows: number;
     errors: BulkUploadValidationError[];
   };
   onReset: () => void;
 }) {
   return (
     <div className="space-y-6">
-      <Alert variant={result.failed === 0 ? "default" : "destructive"}>
-        {result.failed === 0 ? (
+      <Alert variant={result.invalid_rows === 0 ? "default" : "destructive"}>
+        {result.invalid_rows === 0 ? (
           <Check className="h-4 w-4" />
         ) : (
           <AlertCircle className="h-4 w-4" />
         )}
         <AlertTitle>
-          {result.failed === 0
+          {result.invalid_rows === 0
             ? "Import Completed Successfully"
             : "Import Completed with Errors"}
         </AlertTitle>
@@ -537,7 +524,7 @@ function ResultsSummary({
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-green-600">
-              {result.created}
+              {result.products_created}
             </div>
             <p className="text-xs text-muted-foreground">Created</p>
           </CardContent>
@@ -545,7 +532,7 @@ function ResultsSummary({
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-blue-600">
-              {result.updated}
+              {result.products_updated}
             </div>
             <p className="text-xs text-muted-foreground">Updated</p>
           </CardContent>
@@ -553,7 +540,7 @@ function ResultsSummary({
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-red-600">
-              {result.failed}
+              {result.invalid_rows}
             </div>
             <p className="text-xs text-muted-foreground">Failed</p>
           </CardContent>
@@ -769,13 +756,15 @@ export default function ProductBulkUploadPage() {
         const headers = TEMPLATE_HEADERS.join(",");
         const exampleRow = [
           "SKU-001",
+          "1",
           "Example Product",
-          "Product description",
-          "Category A",
-          "",
           "1.5",
-          "10 x 8 x 6 in",
-          "true",
+          "10",
+          "8",
+          "6",
+          "012345678901",
+          "5.00",
+          "9.99",
         ].join(",");
         const csvContent = `${headers}\n${exampleRow}\n`;
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -931,21 +920,23 @@ export default function ProductBulkUploadPage() {
                       Required
                     </Badge>
                     <div>
-                      <span className="font-mono font-medium">name</span>
+                      <span className="font-mono font-medium">customer_id</span>
                       <span className="text-muted-foreground">
                         {" "}
-                        - Product name
+                        - Assigned customer ID
                       </span>
                     </div>
                   </div>
                   <Separator className="my-2" />
                   {[
                     ["description", "Product description"],
-                    ["category", "Product category"],
-                    ["customer_id", "Assigned customer ID"],
-                    ["weight", "Weight in lbs (number)"],
-                    ["dimensions", "L x W x H format"],
-                    ["is_active", "true/false (default: true)"],
+                    ["weight_lb", "Weight in lbs (number)"],
+                    ["length_in", "Length in inches"],
+                    ["width_in", "Width in inches"],
+                    ["height_in", "Height in inches"],
+                    ["upc", "UPC barcode"],
+                    ["cost", "Product cost"],
+                    ["price", "Product price"],
                   ].map(([field, desc]) => (
                     <div key={field} className="flex items-start gap-2">
                       <Badge variant="secondary" className="text-[10px] mt-0.5">

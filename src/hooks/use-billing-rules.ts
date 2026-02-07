@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, endpoints } from "@/lib/api/client";
-import type { BillingRule, BillingRuleType } from "@/types";
+import type { BillingRuleCondition, CustomerBillingRuleConfig } from "@/types";
 
 // ============================================================================
 // Query Keys Factory
@@ -19,31 +19,29 @@ export const billingRulesKeys = {
 // Types
 // ============================================================================
 
-export interface BillingRuleWithDetails extends BillingRule {
-  customer_name?: string;
-  last_triggered_at?: string;
-  trigger_count?: number;
-}
+// BillingRuleCondition is the actual type from the backend
+export type BillingRuleWithDetails = BillingRuleCondition;
 
 export interface CreateCustomerBillingRuleData {
   customer_id: number;
-  rule_type: BillingRuleType;
-  name: string;
-  description?: string | null;
-  conditions: Record<string, unknown>;
-  actions: Record<string, unknown>;
-  priority?: number;
+  service_type_id: number;
+  condition_type: string;
+  condition_value: Record<string, unknown>;
+  applies_per: string;
+  max_per_order?: number | null;
   is_active?: boolean;
+  priority?: number;
+  notes?: string | null;
 }
 
 export interface UpdateCustomerBillingRuleData {
-  rule_type?: BillingRuleType;
-  name?: string;
-  description?: string | null;
-  conditions?: Record<string, unknown>;
-  actions?: Record<string, unknown>;
-  priority?: number;
+  condition_type?: string;
+  condition_value?: Record<string, unknown>;
+  applies_per?: string;
+  max_per_order?: number | null;
   is_active?: boolean;
+  priority?: number;
+  notes?: string | null;
 }
 
 export interface SandboxTestData {
@@ -90,14 +88,15 @@ export interface ReorderRulesData {
 // ============================================================================
 
 /**
- * Fetch billing rules for a customer
+ * Fetch billing rule conditions for a customer.
+ * GET /billing/rules/{customerId}/conditions returns BillingRuleCondition[]
  */
 export function useBillingRules(customerId: number | string) {
   return useQuery({
     queryKey: billingRulesKeys.customer(customerId),
     queryFn: async (): Promise<BillingRuleWithDetails[]> => {
       const response = await api.get<BillingRuleWithDetails[]>(
-        endpoints.billing.rules(customerId)
+        `${endpoints.billing.rules(customerId)}/conditions`
       );
       return response.data ?? [];
     },
@@ -107,17 +106,38 @@ export function useBillingRules(customerId: number | string) {
 }
 
 /**
- * Fetch a single billing rule by ID
+ * Fetch the billing config for a customer.
+ * GET /billing/rules/{customerId} returns CustomerBillingRuleConfig
+ */
+export function useBillingRuleConfig(customerId: number | string) {
+  return useQuery({
+    queryKey: [...billingRulesKeys.all, customerId, "config"] as const,
+    queryFn: async (): Promise<CustomerBillingRuleConfig> => {
+      const response = await api.get<CustomerBillingRuleConfig>(
+        endpoints.billing.rules(customerId)
+      );
+      if (!response.data) {
+        throw new Error("Billing rule config not found");
+      }
+      return response.data;
+    },
+    enabled: !!customerId,
+    staleTime: 60000, // 1 minute
+  });
+}
+
+/**
+ * Fetch a single billing rule condition by ID
  */
 export function useBillingRule(customerId: number | string, ruleId: number | string) {
   return useQuery({
     queryKey: billingRulesKeys.detail(customerId, ruleId),
     queryFn: async (): Promise<BillingRuleWithDetails> => {
       const response = await api.get<BillingRuleWithDetails>(
-        `${endpoints.billing.rules(customerId)}/${ruleId}`
+        `${endpoints.billing.rules(customerId)}/conditions/${ruleId}`
       );
       if (!response.data) {
-        throw new Error("Billing rule not found");
+        throw new Error("Billing rule condition not found");
       }
       return response.data;
     },
@@ -141,7 +161,7 @@ export function useCreateBillingRule() {
       data: CreateCustomerBillingRuleData
     ): Promise<BillingRuleWithDetails> => {
       const response = await api.post<BillingRuleWithDetails>(
-        endpoints.billing.rules(data.customer_id),
+        `${endpoints.billing.rules(data.customer_id)}/conditions`,
         data
       );
       if (!response.data) {
@@ -181,11 +201,11 @@ export function useUpdateBillingRule() {
       data: UpdateCustomerBillingRuleData;
     }): Promise<BillingRuleWithDetails> => {
       const response = await api.put<BillingRuleWithDetails>(
-        `${endpoints.billing.rules(customerId)}/${ruleId}`,
+        `${endpoints.billing.rules(customerId)}/conditions/${ruleId}`,
         data
       );
       if (!response.data) {
-        throw new Error("Failed to update billing rule");
+        throw new Error("Failed to update billing rule condition");
       }
       return response.data;
     },
@@ -218,7 +238,7 @@ export function useDeleteBillingRule() {
       customerId: number | string;
       ruleId: number | string;
     }): Promise<void> => {
-      await api.delete(`${endpoints.billing.rules(customerId)}/${ruleId}`);
+      await api.delete(`${endpoints.billing.rules(customerId)}/conditions/${ruleId}`);
     },
     onSuccess: (_, { customerId, ruleId }) => {
       // Invalidate rules for this customer
@@ -249,7 +269,7 @@ export function useReorderBillingRules() {
       data: ReorderRulesData;
     }): Promise<BillingRuleWithDetails[]> => {
       const response = await api.put<BillingRuleWithDetails[]>(
-        `${endpoints.billing.rules(customerId)}/reorder`,
+        `${endpoints.billing.rules(customerId)}/conditions/reorder`,
         data
       );
       if (!response.data) {
@@ -284,7 +304,7 @@ export function useToggleBillingRule() {
       isActive: boolean;
     }): Promise<BillingRuleWithDetails> => {
       const response = await api.patch<BillingRuleWithDetails>(
-        `${endpoints.billing.rules(customerId)}/${ruleId}`,
+        `${endpoints.billing.rules(customerId)}/conditions/${ruleId}`,
         { is_active: isActive }
       );
       if (!response.data) {
@@ -324,7 +344,7 @@ export function useDuplicateBillingRule() {
       newName?: string;
     }): Promise<BillingRuleWithDetails> => {
       const response = await api.post<BillingRuleWithDetails>(
-        `${endpoints.billing.rules(customerId)}/${ruleId}/duplicate`,
+        `${endpoints.billing.rules(customerId)}/conditions/${ruleId}/duplicate`,
         newName ? { name: newName } : {}
       );
       if (!response.data) {
@@ -380,7 +400,7 @@ export interface BulkUpdateRulesData {
 
 export interface BulkUpdateRulesResult {
   updated: number;
-  rules: BillingRule[];
+  rules: BillingRuleCondition[];
 }
 
 /**
@@ -398,7 +418,7 @@ export function useBulkUpdateBillingRules() {
       data: BulkUpdateRulesData;
     }): Promise<BulkUpdateRulesResult> => {
       const response = await api.put<BulkUpdateRulesResult>(
-        `${endpoints.billing.rules(customerId)}/bulk`,
+        `${endpoints.billing.rules(customerId)}/conditions/bulk`,
         data
       );
       if (!response.data) {
@@ -438,7 +458,7 @@ export function useBulkDeleteBillingRules() {
       data: BulkDeleteRulesData;
     }): Promise<BulkDeleteRulesResult> => {
       const response = await api.post<BulkDeleteRulesResult>(
-        `${endpoints.billing.rules(customerId)}/bulk-delete`,
+        `${endpoints.billing.rules(customerId)}/conditions/bulk-delete`,
         data
       );
       if (!response.data) {

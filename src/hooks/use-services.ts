@@ -32,18 +32,16 @@ export interface ServiceRatesParams {
 export interface CreateServiceRateData {
   service_type_id: number;
   customer_id?: number | null;
-  rate: number;
-  unit: string;
-  min_charge?: number | null;
+  rate: string;
+  minimum_charge?: string | null;
   effective_date: string;
 }
 
 export interface UpdateServiceRateData {
   service_type_id?: number;
   customer_id?: number | null;
-  rate?: number;
-  unit?: string;
-  min_charge?: number | null;
+  rate?: string;
+  minimum_charge?: string | null;
   effective_date?: string;
 }
 
@@ -54,9 +52,8 @@ export interface ServiceRateTemplate {
   rates: {
     service_type_id: number;
     service_type_name: string;
-    rate: number;
-    unit: string;
-    min_charge: number | null;
+    rate: string;
+    min_charge: string | null;
   }[];
   created_at: string;
   updated_at: string;
@@ -360,16 +357,19 @@ export function useDeleteServiceRate() {
 // ============================================================================
 
 /**
- * Fetch service rate templates
+ * Fetch service rate templates.
+ * Backend returns {templates: [...], categories: [...]} not a flat array.
  */
 export function useServiceRateTemplates() {
   return useQuery({
     queryKey: servicesKeys.templates(),
     queryFn: async (): Promise<ServiceRateTemplate[]> => {
-      const response = await api.get<ServiceRateTemplate[]>(
+      const response = await api.get<{ templates: ServiceRateTemplate[]; categories: string[] }>(
         endpoints.services.templates
       );
-      return response.data ?? [];
+      // Backend returns {templates: [...], categories: [...]}
+      const data = response.data as unknown as { templates: ServiceRateTemplate[]; categories: string[] } | undefined;
+      return data?.templates ?? [];
     },
     staleTime: 300000, // 5 minutes - templates change infrequently
   });

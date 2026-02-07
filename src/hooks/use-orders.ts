@@ -17,9 +17,6 @@ export const orderKeys = {
   list: (filters: OrdersParams) => [...orderKeys.lists(), filters] as const,
   details: () => [...orderKeys.all, "detail"] as const,
   detail: (id: number | string) => [...orderKeys.details(), id] as const,
-  items: (id: number | string) => [...orderKeys.detail(id), "items"] as const,
-  packages: (id: number | string) =>
-    [...orderKeys.detail(id), "packages"] as const,
 };
 
 // ============================================================================
@@ -99,39 +96,9 @@ export function useOrder(id: number | string) {
   });
 }
 
-/**
- * Fetch order items separately (if not included in order detail)
- */
-export function useOrderItems(orderId: number | string) {
-  return useQuery({
-    queryKey: orderKeys.items(orderId),
-    queryFn: async (): Promise<OrderItem[]> => {
-      const response = await api.get<OrderItem[]>(
-        `${endpoints.orders.detail(orderId)}/items`
-      );
-      return response.data ?? [];
-    },
-    enabled: !!orderId,
-    staleTime: 60000, // 1 minute
-  });
-}
-
-/**
- * Fetch order packages separately (if not included in order detail)
- */
-export function useOrderPackages(orderId: number | string) {
-  return useQuery({
-    queryKey: orderKeys.packages(orderId),
-    queryFn: async (): Promise<OrderPackage[]> => {
-      const response = await api.get<OrderPackage[]>(
-        `${endpoints.orders.detail(orderId)}/packages`
-      );
-      return response.data ?? [];
-    },
-    enabled: !!orderId,
-    staleTime: 60000, // 1 minute
-  });
-}
+// NOTE: useOrderItems and useOrderPackages removed - items/packages are
+// embedded in the order detail response (order.items, order.packages).
+// Use useOrder() and access order.items / order.packages directly.
 
 // ============================================================================
 // Utility Hooks

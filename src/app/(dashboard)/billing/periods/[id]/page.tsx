@@ -198,7 +198,7 @@ export default function BillingPeriodDetailPage({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-bold tracking-tight">
-                {period.name}
+                {period.period_name}
               </h1>
               <Badge
                 variant={period.status === "closed" ? "secondary" : "default"}
@@ -212,7 +212,7 @@ export default function BillingPeriodDetailPage({
               </Badge>
             </div>
             <p className="text-muted-foreground">
-              {formatDate(period.start_date)} - {formatDate(period.end_date)}
+              {formatDate(period.period_start)} - {formatDate(period.period_end)}
             </p>
           </div>
         </div>

@@ -17,7 +17,7 @@ export type SearchResultType = "customer" | "order" | "invoice" | "product";
 export interface SearchResultItem {
   type: SearchResultType;
   id: string | number;
-  title: string;
+  name: string;
   subtitle: string | null;
   url: string;
 }
@@ -118,7 +118,7 @@ function SearchResultGroup({
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {item.title}
+                  {item.name}
                 </p>
                 {item.subtitle && (
                   <p className="text-xs text-muted-foreground truncate">

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, endpoints } from "@/lib/api/client";
 import { useDebounce } from "./use-debounce";
-import type { SearchResult } from "@/types";
+import type { SearchResult, SearchResponse } from "@/types";
 
 // ============================================================================
 // Query Keys Factory
@@ -23,10 +23,8 @@ export interface GlobalSearchOptions {
   enabled?: boolean;
 }
 
-export interface SearchResponse {
-  results: SearchResult[];
-  total: number;
-}
+// Re-export SearchResponse for backward compatibility
+export type { SearchResponse };
 
 // ============================================================================
 // Query Hooks
@@ -34,6 +32,7 @@ export interface SearchResponse {
 
 /**
  * Global search across customers, orders, invoices, and products
+ * Backend returns: { results: [...], counts: {...}, query, total }
  */
 export function useGlobalSearch(
   query: string,
@@ -44,12 +43,18 @@ export function useGlobalSearch(
   return useQuery({
     queryKey: searchKeys.query(query, types),
     queryFn: async (): Promise<SearchResult[]> => {
-      const response = await api.get<SearchResult[]>(endpoints.search, {
+      const response = await api.get<SearchResponse | SearchResult[]>(endpoints.search, {
         q: query,
         types: types?.join(","),
         limit,
       });
-      return response.data ?? [];
+      const raw = response.data;
+      // Backend returns wrapped: { results: [...], counts, query, total }
+      if (raw && "results" in raw && Array.isArray(raw.results)) {
+        return raw.results;
+      }
+      // Fallback if response is a plain array
+      return (raw as SearchResult[]) ?? [];
     },
     enabled: enabled && query.length >= 2,
     staleTime: 60000, // 1 minute

@@ -116,13 +116,13 @@ const columns: ColumnDef<BillingPeriod>[] = [
     ),
   },
   {
-    accessorKey: "start_date",
+    accessorKey: "period_start",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Period" />
     ),
     cell: ({ row }) => (
       <span>
-        {formatDate(row.original.start_date)} - {formatDate(row.original.end_date)}
+        {formatDate(row.original.period_start)} - {formatDate(row.original.period_end)}
       </span>
     ),
   },
@@ -142,20 +142,20 @@ const columns: ColumnDef<BillingPeriod>[] = [
     },
   },
   {
-    accessorKey: "total_orders",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Orders" />
-    ),
-    cell: ({ row }) => formatNumber(row.original.total_orders),
-  },
-  {
     accessorKey: "total_charges",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Total Charges" />
+      <DataTableColumnHeader column={column} title="Charges" />
+    ),
+    cell: ({ row }) => formatNumber(row.original.total_charges),
+  },
+  {
+    accessorKey: "total_amount",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Total Amount" />
     ),
     cell: ({ row }) => (
       <span className="font-medium">
-        {formatCurrency(row.original.total_charges)}
+        {formatCurrency(row.original.total_amount)}
       </span>
     ),
   },

@@ -147,21 +147,22 @@ const columns: ColumnDef<Invoice>[] = [
       const status = row.original.status;
       const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
         draft: "secondary",
-        pending: "outline",
+        pending_approval: "outline",
         sent: "default",
         paid: "default",
         overdue: "destructive",
-        void: "secondary",
+        voided: "secondary",
+        cancelled: "secondary",
       };
       return <Badge variant={variants[status] || "outline"}>{status}</Badge>;
     },
   },
   {
-    accessorKey: "issue_date",
+    accessorKey: "invoice_date",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Issue Date" />
+      <DataTableColumnHeader column={column} title="Invoice Date" />
     ),
-    cell: ({ row }) => formatDate(row.original.issue_date),
+    cell: ({ row }) => formatDate(row.original.invoice_date),
   },
   {
     accessorKey: "due_date",
@@ -178,19 +179,19 @@ const columns: ColumnDef<Invoice>[] = [
     cell: ({ row }) => formatCurrency(row.original.subtotal),
   },
   {
-    accessorKey: "tax",
+    accessorKey: "tax_amount",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Tax" />
     ),
-    cell: ({ row }) => formatCurrency(row.original.tax),
+    cell: ({ row }) => formatCurrency(row.original.tax_amount),
   },
   {
-    accessorKey: "total",
+    accessorKey: "total_amount",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Total" />
     ),
     cell: ({ row }) => (
-      <span className="font-medium">{formatCurrency(row.original.total)}</span>
+      <span className="font-medium">{formatCurrency(row.original.total_amount)}</span>
     ),
   },
   {
@@ -221,7 +222,7 @@ export default function InvoicesPage() {
   const handleBulkSend = useCallback(
     async (invoices: Invoice[]) => {
       const sendable = invoices.filter(
-        (inv) => inv.status !== "sent" && inv.status !== "paid" && inv.status !== "void"
+        (inv) => inv.status !== "sent" && inv.status !== "paid" && inv.status !== "voided"
       );
       if (sendable.length === 0) {
         toast.error("No eligible invoices to send", {
@@ -279,7 +280,7 @@ export default function InvoicesPage() {
   const handleBulkVoid = useCallback(
     async (invoices: Invoice[]) => {
       const eligible = invoices.filter(
-        (inv) => inv.status !== "void" && inv.status !== "paid"
+        (inv) => inv.status !== "voided" && inv.status !== "paid"
       );
       if (eligible.length === 0) {
         toast.error("No eligible invoices", {
@@ -367,11 +368,12 @@ export default function InvoicesPage() {
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="pending_approval">Pending Approval</SelectItem>
                       <SelectItem value="sent">Sent</SelectItem>
                       <SelectItem value="paid">Paid</SelectItem>
                       <SelectItem value="overdue">Overdue</SelectItem>
-                      <SelectItem value="void">Void</SelectItem>
+                      <SelectItem value="voided">Voided</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -426,11 +428,11 @@ export default function InvoicesPage() {
           { key: "invoice_number", label: "Invoice #" },
           { key: "customer.name", label: "Customer" },
           { key: "status", label: "Status" },
-          { key: "issue_date", label: "Issue Date" },
+          { key: "invoice_date", label: "Invoice Date" },
           { key: "due_date", label: "Due Date" },
           { key: "subtotal", label: "Subtotal" },
-          { key: "tax", label: "Tax" },
-          { key: "total", label: "Total" },
+          { key: "tax_amount", label: "Tax" },
+          { key: "total_amount", label: "Total" },
         ]}
       />
     </div>

@@ -132,7 +132,7 @@ export function CommandPalette() {
                 {result.type === "invoice" && <FileText className="mr-2 h-4 w-4" />}
                 {result.type === "product" && <Boxes className="mr-2 h-4 w-4" />}
                 <div className="flex flex-col">
-                  <span>{result.title}</span>
+                  <span>{result.name}</span>
                   {result.subtitle && (
                     <span className="text-xs text-muted-foreground">
                       {result.subtitle}

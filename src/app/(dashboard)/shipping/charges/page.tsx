@@ -240,7 +240,7 @@ export default function ShippingChargesPage() {
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="billed">Billed</SelectItem>
-              <SelectItem value="disputed">Disputed</SelectItem>
+              <SelectItem value="skipped">Skipped</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={handleSearch}>
@@ -285,12 +285,12 @@ export default function ShippingChargesPage() {
         exportColumns={[
           { key: "order_id", label: "Order ID" },
           { key: "customer_name", label: "Customer" },
-          { key: "carrier_name", label: "Carrier" },
-          { key: "tracking_number", label: "Tracking #" },
-          { key: "ship_date", label: "Ship Date" },
-          { key: "charge_amount", label: "Charge ($)" },
-          { key: "markup_amount", label: "Markup ($)" },
-          { key: "total_amount", label: "Total ($)" },
+          { key: "carrier_code", label: "Carrier" },
+          { key: "transaction_number", label: "Transaction #" },
+          { key: "processed_date", label: "Date" },
+          { key: "shipping_cost_total", label: "Shipping ($)" },
+          { key: "customer_billing", label: "Billed ($)" },
+          { key: "final_total", label: "Total ($)" },
           { key: "status", label: "Status" },
         ]}
       />

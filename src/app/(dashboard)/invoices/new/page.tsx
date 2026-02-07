@@ -42,7 +42,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { api, endpoints } from "@/lib/api/client";
 import { useCustomers } from "@/hooks/use-customers";
 import { useBillingPeriods } from "@/hooks/use-billing";
 import { formatCurrency } from "@/lib/format";
@@ -58,7 +58,7 @@ const lineItemSchema = z.object({
 
 const invoiceFormSchema = z.object({
   customer_id: z.string().min(1, "Customer is required"),
-  period_id: z.string().optional(),
+  billing_period_id: z.string().optional(),
   due_date: z.string().min(1, "Due date is required"),
   notes: z.string().optional(),
   line_items: z.array(lineItemSchema).min(1, "At least one line item required"),
@@ -74,7 +74,7 @@ function NewInvoiceForm() {
   const customers = customersData?.data ?? [];
 
   const preselectedCustomerId = searchParams.get("customer_id") || "";
-  const preselectedPeriodId = searchParams.get("period_id") || "";
+  const preselectedPeriodId = searchParams.get("billing_period_id") || "";
 
   const { data: periodsData } = useBillingPeriods({ per_page: 50 });
   const periods = periodsData?.data ?? [];
@@ -83,7 +83,7 @@ function NewInvoiceForm() {
     resolver: zodResolver(invoiceFormSchema),
     defaultValues: {
       customer_id: preselectedCustomerId,
-      period_id: preselectedPeriodId,
+      billing_period_id: preselectedPeriodId,
       due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0],
@@ -101,7 +101,7 @@ function NewInvoiceForm() {
 
   const createInvoice = useMutation({
     mutationFn: async (data: InvoiceFormValues) => {
-      const response = await api.post<{ id: string }>("/api/v1/invoices", data);
+      const response = await api.post<{ id: string }>(endpoints.invoices.list, data);
       return response.data;
     },
     onSuccess: (data) => {
@@ -170,7 +170,7 @@ function NewInvoiceForm() {
                           <SelectContent>
                             {customers?.map((customer) => (
                               <SelectItem key={customer.id} value={String(customer.id)}>
-                                {customer.name} ({customer.code})
+                                {customer.name} ({customer.external_id ?? customer.id})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -182,7 +182,7 @@ function NewInvoiceForm() {
 
                   <FormField
                     control={form.control}
-                    name="period_id"
+                    name="billing_period_id"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Billing Period</FormLabel>
@@ -197,8 +197,8 @@ function NewInvoiceForm() {
                           </FormControl>
                           <SelectContent>
                             {periods?.map((period) => (
-                              <SelectItem key={period.id} value={period.id}>
-                                {period.name}
+                              <SelectItem key={period.id} value={String(period.id)}>
+                                {period.period_name}
                               </SelectItem>
                             ))}
                           </SelectContent>

@@ -23,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { api, endpoints } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 import type { BillingPeriod, Customer } from "@/types";
@@ -50,27 +50,28 @@ export default function InvoiceFromPeriodPage() {
   const { data: periodData, isLoading: periodLoading } = useQuery({
     queryKey: ["billing-period", periodId],
     queryFn: async () => {
-      const response = await api.get<{ data: BillingPeriod }>(
-        `/api/v1/billing/periods/${periodId}`
+      const response = await api.get<BillingPeriod>(
+        endpoints.billing.periodDetail(periodId)
       );
-      return response.data?.data;
+      return response.data;
     },
   });
 
   const { data: unbilledData, isLoading: unbilledLoading } = useQuery({
     queryKey: ["unbilled-charges", periodId],
     queryFn: async () => {
-      const response = await api.get<{ data: UnbilledCharge[] }>(
-        `/api/v1/billing/periods/${periodId}/unbilled`
+      const response = await api.get<{ summary: UnbilledCharge[] }>(
+        endpoints.billing.unbilled,
+        { billing_period_id: periodId }
       );
-      return response.data?.data;
+      return response.data?.summary ?? [];
     },
   });
 
   const createInvoices = useMutation({
     mutationFn: async (customerIds: string[]): Promise<{ created_count: number }> => {
-      const response = await api.post<{ created_count: number }>("/api/v1/invoices/bulk-create", {
-        period_id: periodId,
+      const response = await api.post<{ created_count: number }>(endpoints.invoices.bulkCreate, {
+        billing_period_id: periodId,
         customer_ids: customerIds,
       });
       return response.data ?? { created_count: 0 };
@@ -136,7 +137,7 @@ export default function InvoiceFromPeriodPage() {
             Create Invoices from Period
           </h1>
           <p className="text-muted-foreground">
-            {periodData?.name} - Select customers to generate invoices
+            {periodData?.period_name} - Select customers to generate invoices
           </p>
         </div>
         <Badge variant={periodData?.status === "open" ? "default" : "secondary"}>

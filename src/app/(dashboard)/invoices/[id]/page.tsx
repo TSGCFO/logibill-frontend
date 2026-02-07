@@ -75,11 +75,12 @@ import { toast } from "sonner";
 
 const statusVariants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   draft: "secondary",
-  pending: "outline",
+  pending_approval: "outline",
   sent: "default",
   paid: "default",
   overdue: "destructive",
-  void: "secondary",
+  voided: "secondary",
+  cancelled: "secondary",
 };
 
 export default function InvoiceDetailPage({
@@ -117,9 +118,10 @@ export default function InvoiceDetailPage({
     notFound();
   }
 
-  // Calculate amount due (total - paid amount)
-  const amountPaid = invoice.amount_paid ?? 0;
-  const amountDue = invoice.total - amountPaid;
+  // Calculate amount due - amounts are strings from backend (Decimal)
+  const amountPaid = parseFloat(invoice.amount_paid) || 0;
+  const totalAmount = parseFloat(invoice.total_amount) || 0;
+  const amountDue = parseFloat(invoice.balance_due) || (totalAmount - amountPaid);
 
   const handleSendEmail = async (email: string, cc?: string) => {
     try {
@@ -167,10 +169,11 @@ export default function InvoiceDetailPage({
   };
 
   // Determine which actions are available based on status
-  const canSend = invoice.status === "draft" || invoice.status === "pending";
-  const canVoid = invoice.status !== "void" && invoice.status !== "paid";
+  const canSend = invoice.status === "draft" || invoice.status === "pending_approval";
+  const canVoid = invoice.status !== "voided" && invoice.status !== "paid" && invoice.status !== "cancelled";
   const canRecordPayment =
-    invoice.status !== "void" &&
+    invoice.status !== "voided" &&
+    invoice.status !== "cancelled" &&
     invoice.status !== "paid" &&
     amountDue > 0;
 
@@ -335,15 +338,15 @@ export default function InvoiceDetailPage({
                       <TableCell>
                         <div>
                           <p className="font-medium">{item.description}</p>
-                          {item.reference_id && (
+                          {item.service_record_id && (
                             <p className="text-xs text-muted-foreground">
-                              Ref: {item.reference_id}
+                              Ref: {item.service_record_id}
                             </p>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{item.charge_type}</Badge>
+                        <Badge variant="outline">{item.service_type ?? "-"}</Badge>
                       </TableCell>
                       <TableCell className="text-right">{item.quantity}</TableCell>
                       <TableCell className="text-right">
@@ -409,7 +412,7 @@ export default function InvoiceDetailPage({
                     Tax
                   </TableCell>
                   <TableCell className="text-right">
-                    {formatCurrency(invoice.tax)}
+                    {formatCurrency(invoice.tax_amount)}
                   </TableCell>
                   {invoice.status === "draft" && <TableCell></TableCell>}
                 </TableRow>
@@ -421,7 +424,7 @@ export default function InvoiceDetailPage({
                     Total
                   </TableCell>
                   <TableCell className="text-right font-bold text-lg">
-                    {formatCurrency(invoice.total)}
+                    {formatCurrency(invoice.total_amount)}
                   </TableCell>
                   {invoice.status === "draft" && <TableCell></TableCell>}
                 </TableRow>
@@ -443,8 +446,8 @@ export default function InvoiceDetailPage({
               </div>
               <Separator />
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Issue Date</span>
-                <span>{formatDate(invoice.issue_date)}</span>
+                <span className="text-muted-foreground">Invoice Date</span>
+                <span>{formatDate(invoice.invoice_date)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Due Date</span>
@@ -483,14 +486,18 @@ export default function InvoiceDetailPage({
               >
                 {invoice.customer?.name || `Customer #${invoice.customer_id}`}
               </Link>
-              {invoice.customer?.email && (
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(invoice.customer as any)?.email && (
                 <p className="text-sm text-muted-foreground">
-                  {invoice.customer.email}
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {(invoice.customer as any).email}
                 </p>
               )}
-              {invoice.customer?.billing_email && (
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(invoice.customer as any)?.billing_email && (
                 <p className="text-sm text-muted-foreground">
-                  Billing: {invoice.customer.billing_email}
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  Billing: {(invoice.customer as any).billing_email}
                 </p>
               )}
             </CardContent>
@@ -537,10 +544,10 @@ export default function InvoiceDetailPage({
       {/* Email Preview Dialog */}
       <EmailPreviewDialog
         invoiceId={id}
-        customerEmail={invoice.customer?.billing_email || invoice.customer?.email || ""}
+        customerEmail={(invoice.customer as Record<string, unknown>)?.billing_email as string | undefined || (invoice.customer as Record<string, unknown>)?.email as string | undefined || ""}
         customerName={invoice.customer?.name || `Customer #${invoice.customer_id}`}
         invoiceNumber={invoice.invoice_number}
-        totalAmount={invoice.total}
+        totalAmount={totalAmount}
         open={emailPreviewOpen}
         onOpenChange={setEmailPreviewOpen}
         onSend={handleSendEmail}
@@ -559,7 +566,7 @@ export default function InvoiceDetailPage({
       <RecordPaymentDialog
         invoiceId={id}
         invoiceNumber={invoice.invoice_number}
-        totalAmount={invoice.total}
+        totalAmount={totalAmount}
         amountDue={amountDue}
         open={paymentDialogOpen}
         onOpenChange={setPaymentDialogOpen}

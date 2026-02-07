@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api/client";
+import { api, endpoints } from "@/lib/api/client";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { MaterialsPricingGlobal, MaterialsPricingCustomer, PackagingRateCatalog } from "@/types";
 
@@ -47,22 +47,22 @@ const globalPricingColumns: ColumnDef<MaterialsPricingGlobal>[] = [
     cell: ({ row }) => row.original.box_size || "-",
   },
   {
-    accessorKey: "unit_cost",
+    accessorKey: "cost_per_unit",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Unit Cost" />
     ),
     cell: ({ row }) => (
       <span className="font-medium">
-        {formatCurrency(row.original.unit_cost)}
+        {formatCurrency(parseFloat(row.original.cost_per_unit) || 0)}
       </span>
     ),
   },
   {
-    accessorKey: "effective_date",
+    accessorKey: "effective_from",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Effective Date" />
     ),
-    cell: ({ row }) => formatDate(row.original.effective_date),
+    cell: ({ row }) => formatDate(row.original.effective_from),
   },
   {
     id: "actions",
@@ -95,12 +95,12 @@ const globalPricingColumns: ColumnDef<MaterialsPricingGlobal>[] = [
 
 const packagingRateColumns: ColumnDef<PackagingRateCatalog>[] = [
   {
-    accessorKey: "name",
+    accessorKey: "size_category",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Name" />
+      <DataTableColumnHeader column={column} title="Size Category" />
     ),
     cell: ({ row }) => (
-      <span className="font-medium">{row.original.name}</span>
+      <span className="font-medium">{row.original.size_category}</span>
     ),
   },
   {
@@ -110,22 +110,24 @@ const packagingRateColumns: ColumnDef<PackagingRateCatalog>[] = [
     ),
   },
   {
-    accessorKey: "material_type",
+    accessorKey: "all_in_rate",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Material Type" />
-    ),
-    cell: ({ row }) => (
-      <Badge variant="outline">{row.original.material_type}</Badge>
-    ),
-  },
-  {
-    accessorKey: "base_rate",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Base Rate" />
+      <DataTableColumnHeader column={column} title="All-In Rate" />
     ),
     cell: ({ row }) => (
       <span className="font-medium">
-        {formatCurrency(row.original.base_rate)}
+        {formatCurrency(parseFloat(row.original.all_in_rate) || 0)}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "box_cost",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Box Cost" />
+    ),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">
+        {formatCurrency(parseFloat(row.original.box_cost) || 0)}
       </span>
     ),
   },
@@ -158,7 +160,7 @@ export default function MaterialsConfigPage() {
     queryKey: ["materials-global"],
     queryFn: async () => {
       const response = await api.get<MaterialsPricingGlobal[]>(
-        "/api/v1/materials/global"
+        endpoints.materials.global
       );
       return response.data;
     },
@@ -168,7 +170,7 @@ export default function MaterialsConfigPage() {
     queryKey: ["packaging-rates"],
     queryFn: async () => {
       const response = await api.get<PackagingRateCatalog[]>(
-        "/api/v1/materials/packaging-rates"
+        endpoints.materials.packagingRates
       );
       return response.data;
     },
@@ -231,14 +233,14 @@ export default function MaterialsConfigPage() {
             <CardHeader>
               <CardTitle>Packaging Rate Catalog</CardTitle>
               <CardDescription>
-                Standard packaging rates by box size and material type
+                Standard packaging rates by box size
               </CardDescription>
             </CardHeader>
             <CardContent>
               <DataTable
                 columns={packagingRateColumns}
                 data={packagingRates ?? []}
-                searchKey="name"
+                searchKey="size_category"
                 searchPlaceholder="Search packaging..."
                 isLoading={packagingLoading}
               />

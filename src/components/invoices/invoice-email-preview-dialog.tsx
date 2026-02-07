@@ -35,20 +35,21 @@ export function InvoiceEmailPreviewDialog({
   const [isSending, setIsSending] = React.useState(false);
 
   const recipientEmail =
-    invoice.customer?.billing_email || invoice.customer?.email || "";
+    (invoice.customer as Record<string, unknown>)?.billing_email as string ||
+    (invoice.customer as Record<string, unknown>)?.email as string || "";
   const recipientName = invoice.customer?.name || "Customer";
 
   const emailSubject = `Invoice ${invoice.invoice_number} from LogiBill`;
 
   const emailBody = `Dear ${recipientName},
 
-Please find attached invoice ${invoice.invoice_number} for ${formatCurrency(invoice.total)}.
+Please find attached invoice ${invoice.invoice_number} for ${formatCurrency(invoice.total_amount)}.
 
 Invoice Details:
 - Invoice Number: ${invoice.invoice_number}
-- Issue Date: ${formatDate(invoice.issue_date)}
+- Invoice Date: ${formatDate(invoice.invoice_date)}
 - Due Date: ${formatDate(invoice.due_date)}
-- Amount Due: ${formatCurrency(invoice.total)}
+- Amount Due: ${formatCurrency(invoice.total_amount)}
 
 Please remit payment by the due date to avoid any late fees.
 

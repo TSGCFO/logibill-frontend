@@ -80,7 +80,7 @@ const columns: ColumnDef<Customer>[] = [
           >
             {customer.name}
           </Link>
-          <p className="text-sm text-muted-foreground">{customer.code}</p>
+          <p className="text-sm text-muted-foreground">{customer.external_id}</p>
         </div>
       );
     },
@@ -100,12 +100,12 @@ const columns: ColumnDef<Customer>[] = [
     cell: ({ row }) => row.original.phone || "-",
   },
   {
-    accessorKey: "status",
+    accessorKey: "billing_status",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => {
-      const status = row.original.status;
+      const status = row.original.billing_status;
       return (
         <Badge
           variant={
@@ -214,10 +214,10 @@ export default function CustomersPage() {
         exportFilename="customers-export"
         exportColumns={[
           { key: "name", label: "Name" },
-          { key: "code", label: "Code" },
+          { key: "external_id", label: "External ID" },
           { key: "email", label: "Email" },
           { key: "phone", label: "Phone" },
-          { key: "status", label: "Status" },
+          { key: "billing_status", label: "Status" },
           { key: "payment_terms", label: "Payment Terms" },
         ]}
       />

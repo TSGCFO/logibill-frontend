@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, MoreHorizontal, Edit, Trash2, Copy, ArrowLeft } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, Trash2, Copy, ArrowLeft, Loader2 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,113 +32,26 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { DataTable } from "@/components/tables/data-table";
 import { DataTableColumnHeader } from "@/components/tables/data-table-column-header";
 import { formatCurrency, formatDate } from "@/lib/format";
+import {
+  useServiceRateTemplates,
+  useCreateServiceRateTemplate,
+  useDuplicateServiceRateTemplate,
+  useDeleteServiceRateTemplate,
+  type ServiceRateTemplate,
+} from "@/hooks/use-services";
 import { toast } from "sonner";
 
-interface RateTemplate {
-  id: string;
-  name: string;
-  description: string;
-  service_count: number;
-  customer_count: number;
-  created_at: string;
-  is_default: boolean;
-}
-
-interface ServiceRate {
-  id: string;
-  service_code: string;
-  service_name: string;
-  rate: number;
-  unit: string;
-  effective_date: string;
-}
-
-const mockTemplates: RateTemplate[] = [
-  {
-    id: "1",
-    name: "Standard Rates",
-    description: "Default rates for new customers",
-    service_count: 12,
-    customer_count: 5,
-    created_at: "2023-06-01T00:00:00Z",
-    is_default: true,
-  },
-  {
-    id: "2",
-    name: "High Volume",
-    description: "Discounted rates for high volume customers",
-    service_count: 12,
-    customer_count: 2,
-    created_at: "2023-09-15T00:00:00Z",
-    is_default: false,
-  },
-  {
-    id: "3",
-    name: "Premium Service",
-    description: "Premium rates with additional services",
-    service_count: 15,
-    customer_count: 1,
-    created_at: "2024-01-01T00:00:00Z",
-    is_default: false,
-  },
-];
-
-const mockRates: ServiceRate[] = [
-  {
-    id: "1",
-    service_code: "PICK",
-    service_name: "Item Picking",
-    rate: 0.35,
-    unit: "per item",
-    effective_date: "2024-01-01",
-  },
-  {
-    id: "2",
-    service_code: "PACK",
-    service_name: "Package Handling",
-    rate: 1.50,
-    unit: "per package",
-    effective_date: "2024-01-01",
-  },
-  {
-    id: "3",
-    service_code: "SHIP",
-    service_name: "Shipping Handling",
-    rate: 0.50,
-    unit: "per shipment",
-    effective_date: "2024-01-01",
-  },
-  {
-    id: "4",
-    service_code: "RECV",
-    service_name: "Receiving",
-    rate: 15.00,
-    unit: "per pallet",
-    effective_date: "2024-01-01",
-  },
-];
-
-const templateColumns: ColumnDef<RateTemplate>[] = [
+const templateColumns: ColumnDef<ServiceRateTemplate>[] = [
   {
     accessorKey: "name",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Template Name" />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-2">
-        <span className="font-medium">{row.original.name}</span>
-        {row.original.is_default && <Badge>Default</Badge>}
-      </div>
+      <span className="font-medium">{row.original.name}</span>
     ),
   },
   {
@@ -147,20 +60,15 @@ const templateColumns: ColumnDef<RateTemplate>[] = [
       <DataTableColumnHeader column={column} title="Description" />
     ),
     cell: ({ row }) => (
-      <span className="text-muted-foreground">{row.original.description}</span>
+      <span className="text-muted-foreground">{row.original.description || "-"}</span>
     ),
   },
   {
-    accessorKey: "service_count",
+    id: "rates_count",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Services" />
+      <DataTableColumnHeader column={column} title="Rates" />
     ),
-  },
-  {
-    accessorKey: "customer_count",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Customers" />
-    ),
+    cell: ({ row }) => row.original.rates?.length ?? 0,
   },
   {
     accessorKey: "created_at",
@@ -200,63 +108,36 @@ const templateColumns: ColumnDef<RateTemplate>[] = [
   },
 ];
 
-const rateColumns: ColumnDef<ServiceRate>[] = [
-  {
-    accessorKey: "service_code",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Code" />
-    ),
-    cell: ({ row }) => (
-      <span className="font-mono">{row.original.service_code}</span>
-    ),
-  },
-  {
-    accessorKey: "service_name",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Service" />
-    ),
-  },
-  {
-    accessorKey: "rate",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Rate" />
-    ),
-    cell: ({ row }) => (
-      <span className="font-medium">{formatCurrency(row.original.rate)}</span>
-    ),
-  },
-  {
-    accessorKey: "unit",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Unit" />
-    ),
-    cell: ({ row }) => (
-      <Badge variant="outline">{row.original.unit}</Badge>
-    ),
-  },
-  {
-    accessorKey: "effective_date",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Effective" />
-    ),
-    cell: ({ row }) => formatDate(row.original.effective_date),
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => (
-      <Button variant="ghost" size="sm">
-        <Edit className="h-4 w-4" />
-      </Button>
-    ),
-  },
-];
-
 export default function ServiceRatesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateDesc, setNewTemplateDesc] = useState("");
+
+  const { data: templates, isLoading } = useServiceRateTemplates();
+  const createTemplate = useCreateServiceRateTemplate();
 
   const handleCreateTemplate = () => {
-    toast.success("Template created successfully");
-    setIsDialogOpen(false);
+    if (!newTemplateName.trim()) {
+      toast.error("Template name is required");
+      return;
+    }
+    createTemplate.mutate(
+      {
+        name: newTemplateName.trim(),
+        description: newTemplateDesc.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Template created successfully");
+          setIsDialogOpen(false);
+          setNewTemplateName("");
+          setNewTemplateDesc("");
+        },
+        onError: () => {
+          toast.error("Failed to create template");
+        },
+      }
+    );
   };
 
   return (
@@ -293,34 +174,36 @@ export default function ServiceRatesPage() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Template Name</Label>
-                <Input id="name" placeholder="e.g., Standard Rates" />
+                <Input
+                  id="name"
+                  placeholder="e.g., Standard Rates"
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Input
                   id="description"
                   placeholder="Brief description of this template"
+                  value={newTemplateDesc}
+                  onChange={(e) => setNewTemplateDesc(e.target.value)}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="base">Base Template</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Start from scratch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Start from scratch</SelectItem>
-                    <SelectItem value="standard">Copy from Standard</SelectItem>
-                    <SelectItem value="high-volume">Copy from High Volume</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreateTemplate}>Create Template</Button>
+              <Button
+                onClick={handleCreateTemplate}
+                disabled={createTemplate.isPending}
+              >
+                {createTemplate.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Create Template
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -337,27 +220,10 @@ export default function ServiceRatesPage() {
         <CardContent>
           <DataTable
             columns={templateColumns}
-            data={mockTemplates}
+            data={templates ?? []}
             searchKey="name"
             searchPlaceholder="Search templates..."
-          />
-        </CardContent>
-      </Card>
-
-      {/* Default Rates Preview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Default Template Rates</CardTitle>
-          <CardDescription>
-            Service rates in the default template
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={rateColumns}
-            data={mockRates}
-            searchKey="service_name"
-            searchPlaceholder="Search services..."
+            isLoading={isLoading}
           />
         </CardContent>
       </Card>
