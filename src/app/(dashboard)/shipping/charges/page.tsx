@@ -102,41 +102,41 @@ export default function ShippingChargesPage() {
         ),
       },
       {
-        accessorKey: "carrier_name",
+        accessorKey: "carrier_code",
         header: "Carrier",
-        cell: ({ row }) => row.original.carrier_name,
+        cell: ({ row }) => row.original.carrier_code,
       },
       {
-        accessorKey: "tracking_number",
-        header: "Tracking #",
+        accessorKey: "transaction_number",
+        header: "Transaction #",
         cell: ({ row }) => (
           <span className="font-mono text-xs">
-            {row.original.tracking_number}
+            {row.original.transaction_number || "-"}
           </span>
         ),
       },
       {
-        accessorKey: "ship_date",
-        header: "Ship Date",
+        accessorKey: "processed_date",
+        header: "Date",
         cell: ({ row }) =>
-          row.original.ship_date ? formatDate(row.original.ship_date) : "-",
+          row.original.processed_date ? formatDate(row.original.processed_date) : "-",
       },
       {
-        accessorKey: "charge_amount",
-        header: "Charge ($)",
-        cell: ({ row }) => formatCurrency(row.original.charge_amount),
+        accessorKey: "shipping_cost_total",
+        header: "Shipping ($)",
+        cell: ({ row }) => formatCurrency(parseFloat(row.original.shipping_cost_total) || 0),
       },
       {
-        accessorKey: "markup_amount",
-        header: "Markup ($)",
-        cell: ({ row }) => formatCurrency(row.original.markup_amount),
+        accessorKey: "customer_billing",
+        header: "Billed ($)",
+        cell: ({ row }) => formatCurrency(parseFloat(row.original.customer_billing ?? "0") || 0),
       },
       {
-        accessorKey: "total_amount",
+        accessorKey: "final_total",
         header: "Total ($)",
         cell: ({ row }) => (
           <span className="font-medium">
-            {formatCurrency(row.original.total_amount)}
+            {formatCurrency(parseFloat(row.original.final_total ?? "0") || 0)}
           </span>
         ),
       },

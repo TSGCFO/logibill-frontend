@@ -461,23 +461,26 @@ export interface SearchResult {
   url: string;
 }
 
-// Shipping Types
+// Shipping Types (matches ShippingChargeListSchema from backend)
 export interface ShippingCharge {
   id: number;
   order_id: number;
   customer_id: number;
   customer_name: string;
+  order_reference: string | null;
+  techship_shipment_id: number;
+  transaction_number: string | null;
   carrier_code: string;
-  carrier_name: string;
-  tracking_number: string;
-  ship_date: string;
-  charge_amount: number;
-  markup_amount: number;
-  total_amount: number;
-  status: "pending" | "billed" | "disputed";
-  techship_reference: string | null;
-  created_at: string;
-  updated_at: string;
+  service_code: string | null;
+  base_shipping_cost: string;
+  shipping_cost_total: string;
+  customer_billing: string | null;
+  final_total: string | null;
+  package_count: number;
+  status: "pending" | "billed" | "skipped";
+  billed: boolean;
+  skip_billing: boolean;
+  processed_date: string;
 }
 
 export interface ShippingClientMapping {
